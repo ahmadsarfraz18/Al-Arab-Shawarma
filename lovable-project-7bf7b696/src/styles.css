@@ -1,0 +1,159 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-gold: var(--gold);
+  --color-gold-foreground: var(--gold-foreground);
+  --color-ink: var(--ink);
+  --color-cream: var(--cream);
+  --color-whatsapp: var(--whatsapp);
+
+  --font-display: "Playfair Display", Georgia, serif;
+  --font-sans: "Inter", system-ui, sans-serif;
+  --font-arabic: "Amiri", "Playfair Display", serif;
+}
+
+:root {
+  --radius: 0.75rem;
+
+  --background: oklch(0.99 0.005 80);
+  --foreground: oklch(0.18 0.02 30);
+
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.18 0.02 30);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.18 0.02 30);
+
+  /* Deep red brand */
+  --brand: oklch(0.48 0.20 25);
+  --brand-foreground: oklch(0.99 0 0);
+  --primary: var(--brand);
+  --primary-foreground: var(--brand-foreground);
+
+  /* Gold accent */
+  --gold: oklch(0.83 0.16 90);
+  --gold-foreground: oklch(0.20 0.02 30);
+
+  --secondary: oklch(0.96 0.01 80);
+  --secondary-foreground: oklch(0.18 0.02 30);
+  --muted: oklch(0.95 0.01 80);
+  --muted-foreground: oklch(0.45 0.02 30);
+  --accent: oklch(0.96 0.02 80);
+  --accent-foreground: oklch(0.18 0.02 30);
+
+  --destructive: oklch(0.55 0.22 27);
+  --destructive-foreground: oklch(0.99 0 0);
+
+  --border: oklch(0.90 0.01 80);
+  --input: oklch(0.90 0.01 80);
+  --ring: oklch(0.48 0.20 25);
+
+  --ink: oklch(0.14 0.02 30);
+  --cream: oklch(0.97 0.02 85);
+  --whatsapp: oklch(0.62 0.17 145);
+
+  --gradient-brand: linear-gradient(135deg, oklch(0.42 0.20 25), oklch(0.55 0.22 30));
+  --gradient-gold: linear-gradient(135deg, oklch(0.83 0.16 90), oklch(0.75 0.18 75));
+  --gradient-hero: linear-gradient(180deg, oklch(0.10 0.02 30 / 0.30) 0%, oklch(0.10 0.02 30 / 0.85) 100%);
+  --shadow-brand: 0 20px 60px -20px oklch(0.48 0.20 25 / 0.45);
+  --shadow-card: 0 8px 30px -12px oklch(0.20 0.05 30 / 0.18);
+  --shadow-gold: 0 10px 40px -10px oklch(0.83 0.16 90 / 0.55);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
+  }
+}
+
+@utility text-gradient-gold {
+  background: var(--gradient-gold);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+@utility bg-gradient-brand {
+  background: var(--gradient-brand);
+}
+
+@utility bg-gradient-hero {
+  background: var(--gradient-hero);
+}
+
+@utility shadow-brand {
+  box-shadow: var(--shadow-brand);
+}
+
+@utility shadow-card-soft {
+  box-shadow: var(--shadow-card);
+}
+
+@utility shadow-gold-glow {
+  box-shadow: var(--shadow-gold);
+}
+
+@keyframes float-up {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+@utility animate-float {
+  animation: float-up 3s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@utility animate-shimmer {
+  background: linear-gradient(90deg, transparent, oklch(0.83 0.16 90 / 0.3), transparent);
+  background-size: 200% 100%;
+  animation: shimmer 3s linear infinite;
+}
