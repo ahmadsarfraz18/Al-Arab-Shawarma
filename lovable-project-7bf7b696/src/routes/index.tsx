@@ -1,11 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import heroImg from "@/assets/hero-shawarma.jpg";
-import platterLargeChickenImg from "@/assets/platter-large-chicken.jpg";
-import platterMediumChickenImg from "@/assets/platter-medium-chicken.jpg";
-import platterSmallChickenImg from "@/assets/platter-small-chicken.jpg";
-import platterFalafelFullImg from "@/assets/platter-falafel-full.jpg";
-import platterFalafelHalfImg from "@/assets/platter-falafel-half.jpg";
+import platterImg from "@/assets/platter.jpg";
 import burgerGrillImg from "@/assets/burger-grill.jpg";
 import burgerCrispyImg from "@/assets/burger-crispy.jpg";
 
@@ -22,8 +18,8 @@ import pitaFlatbreadStackImg from "@/assets/pita-flatbread-stack.jpg";
 import garlicToumWhiteBowlImg from "@/assets/garlic-toum-white-bowl.jpg";
 import hummusOliveOilBowlImg from "@/assets/hummus-olive-oil-bowl.jpg";
 import beveragesImg from "@/assets/beverages.jpg";
-import waterSmallImg from "@/assets/water-small.jpg";
-import waterLargeImg from "@/assets/water-large.jpg";
+import waterSmallImg from "@/assets/water-500ml.png";
+import waterLargeImg from "@/assets/water-1.5-ltr.webp";
 // Shawarma variants
 import shawarmaCheeseImg from "@/assets/shawarma-cheese.jpg";
 import shawarmaSpicyImg from "@/assets/shawarma-spicy.jpg";
@@ -157,11 +153,11 @@ const MENU: Item[] = [
   { id: "w6", name: "Grill Chicken Cheese Wrap", price: 700, desc: "Flame-grilled chicken with melted cheese.", image: grillCheeseWrapImg, category: "Wraps" },
   { id: "w7", name: "Zinger Crispy Roll", price: 500, desc: "Spicy zinger fillet rolled with sauce.", image: zingerRollImg, category: "Wraps" },
   // Platters
-  { id: "p1", name: "Large Chicken Special", price: 1500, desc: "Large platter feast — shareable & loaded.", image: platterLargeChickenImg, category: "Platters" },
-  { id: "p2", name: "Medium Chicken Special", price: 1000, desc: "Perfect medium platter for two.", image: platterMediumChickenImg, category: "Platters" },
-  { id: "p3", name: "Small Chicken Special", price: 700, desc: "Solo platter packed with flavor.", image: platterSmallChickenImg, category: "Platters" },
-  { id: "p4", name: "Full Falafel Special", price: 1400, desc: "Full falafel platter with hummus & sauces.", image: platterFalafelFullImg, category: "Platters" },
-  { id: "p5", name: "Half Falafel Special", price: 750, desc: "Half falafel platter, big on taste.", image: platterFalafelHalfImg, category: "Platters" },
+  { id: "p1", name: "Large Chicken Special", price: 1500, desc: "Large platter feast — shareable & loaded.", image: platterImg, category: "Platters" },
+  { id: "p2", name: "Medium Chicken Special", price: 1000, desc: "Perfect medium platter for two.", image: platterImg, category: "Platters" },
+  { id: "p3", name: "Small Chicken Special", price: 700, desc: "Solo platter packed with flavor.", image: platterImg, category: "Platters" },
+  { id: "p4", name: "Full Falafel Special", price: 1400, desc: "Full falafel platter with hummus & sauces.", image: platterImg, category: "Platters" },
+  { id: "p5", name: "Half Falafel Special", price: 750, desc: "Half falafel platter, big on taste.", image: platterImg, category: "Platters" },
   // Fast Food
   { id: "f1", name: "Al-Arab Grill Burger", price: 549, desc: "Juicy flame-grilled chicken burger.", image: burgerGrillImg, category: "Fast Food" },
   { id: "f2", name: "Al-Arab Crispy Burger", price: 499, desc: "Golden crispy fried chicken burger.", image: burgerCrispyImg, category: "Fast Food" },
