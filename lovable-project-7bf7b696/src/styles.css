@@ -197,15 +197,6 @@
   box-shadow: 0 0 0 3px oklch(0.55 0.22 27 / .15) !important;
 }
 
-@keyframes fade-in-up {
-  from { opacity: 0; transform: translateY(24px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-@utility animate-fade-in-up {
-  animation: fade-in-up 0.6s ease-out forwards;
-}
-
 .img-placeholder {
   background: oklch(0.90 0.01 80);
   position: relative;

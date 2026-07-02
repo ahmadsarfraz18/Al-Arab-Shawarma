@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import heroImg from "@/assets/hero-shawarma.jpg";
 import platterLargeChickenImg from "@/assets/platter-large-chicken.jpg";
 import platterMediumChickenImg from "@/assets/platter-medium-chicken.jpg";
@@ -241,7 +241,6 @@ function Home() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
   const [ordering, setOrdering] = useState(false);
-  const sectionRefs = useRef<(HTMLElement | null)[]>([]);
 
   const {
     register,
@@ -261,28 +260,6 @@ function Home() {
     window.addEventListener("scroll", onScroll);
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
-
-  useEffect(() => {
-    const observers = sectionRefs.current.map((el) => {
-      if (!el) return null;
-      const observer = new IntersectionObserver(
-        ([entry]) => {
-          if (entry.isIntersecting) {
-            el.classList.add("animate-fade-in-up");
-            observer.unobserve(el);
-          }
-        },
-        { threshold: 0.1 }
-      );
-      observer.observe(el);
-      return observer;
-    });
-    return () => observers.forEach((o) => o?.disconnect());
-  }, []);
-
-  const setSectionRef = (idx: number) => (el: HTMLElement | null) => {
-    sectionRefs.current[idx] = el;
-  };
 
   const copy = (text: string, label: string) => {
     navigator.clipboard?.writeText(text).then(() => {
@@ -430,7 +407,7 @@ function Home() {
       </header>
 
       {/* HERO */}
-      <section id="home" ref={setSectionRef(0)} className="relative overflow-hidden opacity-0">
+      <section id="home" className="relative overflow-hidden">
         <div className="absolute inset-0">
           <img src={heroImg} alt="Arabic shawarma" className="h-full w-full object-cover" />
           <div className="absolute inset-0 bg-gradient-hero" />
@@ -494,7 +471,7 @@ function Home() {
       </section>
 
       {/* ABOUT */}
-      <section id="about" ref={setSectionRef(1)} className="py-24 bg-cream opacity-0">
+      <section id="about" className="py-24 bg-cream">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 grid lg:grid-cols-2 gap-12 items-center">
           <div className="relative rounded-3xl overflow-hidden shadow-card-soft aspect-[4/3]">
             <img src={spitImg} alt="Live shawarma spit" className="absolute inset-0 h-full w-full object-cover" />
@@ -530,7 +507,7 @@ function Home() {
       </section>
 
       {/* MENU */}
-      <section id="menu" ref={setSectionRef(2)} className="py-24 bg-background opacity-0">
+      <section id="menu" className="py-24 bg-background">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto">
             <span className="text-xs uppercase tracking-[0.3em] text-brand font-bold">Our Menu</span>
@@ -576,7 +553,7 @@ function Home() {
       </section>
 
       {/* DELIVERY */}
-      <section id="delivery" ref={setSectionRef(3)} className="py-24 bg-ink text-cream opacity-0">
+      <section id="delivery" className="py-24 bg-ink text-cream">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto">
             <span className="text-xs uppercase tracking-[0.3em] text-gold font-bold">Delivery</span>
@@ -601,7 +578,7 @@ function Home() {
       </section>
 
       {/* CHECKOUT */}
-      <section id="checkout" ref={setSectionRef(4)} className="py-24 bg-cream opacity-0">
+      <section id="checkout" className="py-24 bg-cream">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto">
             <span className="text-xs uppercase tracking-[0.3em] text-brand font-bold">Checkout</span>
@@ -786,7 +763,7 @@ function Home() {
       </section>
 
       {/* WHY US */}
-      <section ref={setSectionRef(5)} className="py-24 bg-background opacity-0">
+      <section className="py-24 bg-background">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto">
             <span className="text-xs uppercase tracking-[0.3em] text-brand font-bold">Why Choose Us</span>
@@ -814,7 +791,7 @@ function Home() {
       </section>
 
       {/* LOCATION */}
-      <section id="location" ref={setSectionRef(6)} className="py-24 bg-cream opacity-0">
+      <section id="location" className="py-24 bg-cream">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto">
             <span className="text-xs uppercase tracking-[0.3em] text-brand font-bold">Visit Us</span>
@@ -850,7 +827,7 @@ function Home() {
       </section>
 
       {/* CONTACT */}
-      <section id="contact" ref={setSectionRef(7)} className="py-24 bg-ink text-cream opacity-0">
+      <section id="contact" className="py-24 bg-ink text-cream">
         <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
           <div className="text-center">
             <span className="text-xs uppercase tracking-[0.3em] text-gold font-bold">Contact</span>
