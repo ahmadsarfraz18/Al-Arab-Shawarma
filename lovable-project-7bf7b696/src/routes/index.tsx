@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import heroImg from "@/assets/hero-shawarma.jpg";
-import platterImg from "@/assets/platter.jpg";
+import platterImg from "@/assets/platter.jfif";
 import burgerGrillImg from "@/assets/burger-grill.jpg";
 import burgerCrispyImg from "@/assets/burger-crispy.jpg";
 
