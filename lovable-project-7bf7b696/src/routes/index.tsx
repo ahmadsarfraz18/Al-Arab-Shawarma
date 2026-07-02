@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import heroImg from "@/assets/hero-shawarma.jpg";
 import platterLargeChickenImg from "@/assets/platter-large-chicken.jpg";
 import platterMediumChickenImg from "@/assets/platter-medium-chicken.jpg";
@@ -44,8 +44,52 @@ import pizzaFriesImg from "@/assets/pizza-fries.jpg";
 import garlicFriesImg from "@/assets/garlic-fries.jpg";
 import masalaFriesImg from "@/assets/masala-fries.jpg";
 import plainFriesImg from "@/assets/plain-fries.jpg";
-import logoAsset from "@/assets/logo.jpeg.asset.json";
+import logoSrc from "@/assets/logo.jfif";
 import { QRCodeSVG } from "qrcode.react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { Toaster, toast } from "sonner";
+
+import { Sheet, SheetContent, SheetClose, SheetTitle } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+
+import {
+  ShoppingBag, X, Menu, Truck, Clock as ClockIcon, UtensilsCrossed, ArrowRight,
+  Leaf, BadgeCheck, Zap, Star, ShieldCheck, ChefHat, Search, User, Phone, MapPin,
+  Pen, CreditCard, Banknote, Smartphone, Building2, Info, Check, Trash2, Plus,
+  Minus, Copy, ArrowUp, Gem, Tag, Heart, Award, MessageCircle, Facebook, Instagram,
+  ArrowRightFromLine, Bike, Loader
+} from "lucide-react";
+
+const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
+  "fa-user": User,
+  "fa-phone": Phone,
+  "fa-location-dot": MapPin,
+  "fa-clock": ClockIcon,
+  "fa-motorcycle": Bike,
+  "fa-leaf": Leaf,
+  "fa-certificate": BadgeCheck,
+  "fa-bolt": Zap,
+  "fa-star": Star,
+  "fa-utensils": UtensilsCrossed,
+  "fa-shield-heart": ShieldCheck,
+  "fa-user-chef": ChefHat,
+  "fa-gem": Gem,
+  "fa-tag": Tag,
+  "fa-money-bill-wave": Banknote,
+  "fa-mobile-screen": Smartphone,
+  "fa-building-columns": Building2,
+  "fa-diamond-turn-right": ArrowRightFromLine,
+  "fa-map-location-dot": MapPin,
+  "fa-pen": Pen,
+};
+
+function Icon({ name, className }: { name: string; className?: string }) {
+  const Comp = iconMap[name];
+  if (!Comp) return null;
+  return <Comp className={className} />;
+}
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -87,7 +131,6 @@ export const Route = createFileRoute("/")({
 });
 
 const WHATSAPP_NUMBER = "923333686848";
-const TAX_RATE = 0.15;
 const EASYPAISA_NUMBER = "0333-3686848";
 const EASYPAISA_TITLE = "Sada Haider Haidri";
 const BANK_TITLE = "SADA HAIDER HADERI";
@@ -110,7 +153,6 @@ const MENU: Item[] = [
   { id: "w2", name: "Champion Wrap", price: 700, desc: "Loaded champion-size wrap with grilled chicken, zinger fillet & falafel.", image: championWrapImg, category: "Wraps" },
   { id: "w3", name: "Vegetable Wrap", price: 300, desc: "Garden-fresh veggies in a soft warm wrap.", image: veggieWrapImg, category: "Wraps" },
   { id: "w4", name: "Falafel Wrap", price: 400, desc: "Crispy falafel with tahini and pickles.", image: falafelWrapImg, category: "Wraps" },
-
   { id: "w6", name: "Grill Chicken Cheese Wrap", price: 700, desc: "Flame-grilled chicken with melted cheese.", image: grillCheeseWrapImg, category: "Wraps" },
   { id: "w7", name: "Zinger Crispy Roll", price: 500, desc: "Spicy zinger fillet rolled with sauce.", image: zingerRollImg, category: "Wraps" },
   // Platters
@@ -176,6 +218,15 @@ function fmt(n: number) {
   return "Rs. " + n.toLocaleString("en-PK");
 }
 
+const formSchema = z.object({
+  name: z.string().min(1, "Name is required").max(80),
+  phone: z.string().min(1, "Phone is required").max(20),
+  address: z.string().min(1, "Address is required").max(300),
+  notes: z.string().max(300).optional(),
+});
+
+type FormValues = z.infer<typeof formSchema>;
+
 function Home() {
   const [cart, setCart] = useState<Record<string, number>>({});
   const [cartOpen, setCartOpen] = useState(false);
@@ -185,17 +236,53 @@ function Home() {
   const [areaQuery, setAreaQuery] = useState("");
   const [selectedArea, setSelectedArea] = useState<{ area: string; zone: string; charge: number } | null>(null);
   const [areaOpen, setAreaOpen] = useState(false);
-  const [form, setForm] = useState({ name: "", phone: "", address: "", notes: "" });
   const [payment, setPayment] = useState<PaymentMethod>("cod");
   const [showTop, setShowTop] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
+  const [ordering, setOrdering] = useState(false);
+  const sectionRefs = useRef<(HTMLElement | null)[]>([]);
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    watch,
+    setValue,
+  } = useForm<FormValues>({
+    resolver: zodResolver(formSchema),
+    defaultValues: { name: "", phone: "", address: "", notes: "" },
+  });
+
+  const formValues = watch();
 
   useEffect(() => {
     const onScroll = () => setShowTop(window.scrollY > 600);
     window.addEventListener("scroll", onScroll);
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
+
+  useEffect(() => {
+    const observers = sectionRefs.current.map((el) => {
+      if (!el) return null;
+      const observer = new IntersectionObserver(
+        ([entry]) => {
+          if (entry.isIntersecting) {
+            el.classList.add("animate-fade-in-up");
+            observer.unobserve(el);
+          }
+        },
+        { threshold: 0.1 }
+      );
+      observer.observe(el);
+      return observer;
+    });
+    return () => observers.forEach((o) => o?.disconnect());
+  }, []);
+
+  const setSectionRef = (idx: number) => (el: HTMLElement | null) => {
+    sectionRefs.current[idx] = el;
+  };
 
   const copy = (text: string, label: string) => {
     navigator.clipboard?.writeText(text).then(() => {
@@ -210,9 +297,8 @@ function Home() {
   );
   const itemCount = lines.reduce((a, l) => a + l.qty, 0);
   const subtotal = lines.reduce((a, l) => a + l.item.price * l.qty, 0);
-  const tax = Math.round(subtotal * TAX_RATE);
   const delivery = selectedArea?.charge ?? 0;
-  const grand = subtotal + tax + delivery;
+  const grand = subtotal + delivery;
 
   const filtered = MENU.filter(
     (m) =>
@@ -246,17 +332,23 @@ function Home() {
     bank: `Bank Transfer — ${BANK_NAME} · ${BANK_TITLE} · IBAN ${BANK_IBAN}`,
   };
 
-  const placeOrder = () => {
-    if (!form.name.trim() || !form.phone.trim() || !selectedArea || !form.address.trim() || lines.length === 0) {
-      alert("Please complete your name, phone, delivery area, address, and add items to your cart.");
+  const onOrder = (data: FormValues) => {
+    if (!selectedArea) {
+      toast.error("Please select a delivery area");
       return;
     }
+    if (lines.length === 0) {
+      toast.error("Your cart is empty");
+      return;
+    }
+    setOrdering(true);
     const itemsTxt = lines.map((l) => `• ${l.qty} × ${l.item.name} — ${fmt(l.item.price * l.qty)}`).join("\n");
     const payNote = payment === "cod"
       ? ""
       : `\n_Please share the payment screenshot here on WhatsApp for verification._`;
-    const msg = `*Al-Arab Shawarma — New Order*\n\n*Customer:* ${form.name}\n*Phone:* ${form.phone}\n*Area:* ${selectedArea.area} (${selectedArea.zone})\n*Address:* ${form.address}\n${form.notes ? `*Notes:* ${form.notes}\n` : ""}\n*Items:*\n${itemsTxt}\n\n*Subtotal:* ${fmt(subtotal)}\n*Sales Tax (15%):* ${fmt(tax)}\n*Delivery:* ${fmt(delivery)}\n*Grand Total:* ${fmt(grand)}\n\n*Payment Method:* ${paymentLabel[payment]}${payNote}\n\nThank you!`;
+    const msg = `*Al-Arab Shawarma — New Order*\n\n*Customer:* ${data.name}\n*Phone:* ${data.phone}\n*Area:* ${selectedArea.area} (${selectedArea.zone})\n*Address:* ${data.address}\n${data.notes ? `*Notes:* ${data.notes}\n` : ""}\n*Items:*\n${itemsTxt}\n\n*Subtotal:* ${fmt(subtotal)}\n*Delivery:* ${fmt(delivery)}\n*Grand Total:* ${fmt(grand)}\n\n*Payment Method:* ${paymentLabel[payment]}${payNote}\n\nThank you!`;
     window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(msg)}`, "_blank");
+    setOrdering(false);
     setConfirmOpen(true);
   };
 
@@ -271,15 +363,18 @@ function Home() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
+      <Toaster position="top-center" richColors closeButton />
+
       {/* NAV */}
       <header className="sticky top-0 z-40 backdrop-blur-md bg-background/85 border-b border-border/60">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between gap-4 py-3">
             <a href="#home" className="flex min-w-0 items-center gap-4">
               <img
-                src={logoAsset.url}
+                src={logoSrc}
                 alt="Al-Arab Shawarma logo"
                 className="h-10 sm:h-11 w-auto aspect-square shrink-0 rounded-full object-cover ring-2 ring-gold/60 shadow-brand bg-ink"
+                loading="lazy"
               />
               <span className="min-w-0 flex flex-col justify-center leading-none">
                 <span className="block truncate font-display text-lg sm:text-xl font-extrabold leading-tight">
@@ -300,7 +395,7 @@ function Home() {
                 onClick={() => setCartOpen(true)}
                 className="relative inline-flex items-center gap-2 rounded-full bg-gradient-brand px-4 py-2.5 text-sm font-semibold text-brand-foreground shadow-brand hover:scale-105 transition-transform"
               >
-                <i className="fa-solid fa-bag-shopping" />
+                <ShoppingBag className="h-4 w-4" />
                 <span className="hidden sm:inline">Cart</span>
                 {itemCount > 0 && (
                   <span className="absolute -top-1.5 -right-1.5 grid h-5 min-w-5 px-1 place-items-center rounded-full bg-gold text-gold-foreground text-[11px] font-bold">
@@ -313,7 +408,7 @@ function Home() {
                 className="lg:hidden grid h-10 w-10 place-items-center rounded-full border border-border"
                 aria-label="Menu"
               >
-                <i className={`fa-solid ${mobileNav ? "fa-xmark" : "fa-bars"}`} />
+                {mobileNav ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
               </button>
             </div>
           </div>
@@ -335,7 +430,7 @@ function Home() {
       </header>
 
       {/* HERO */}
-      <section id="home" className="relative overflow-hidden">
+      <section id="home" ref={setSectionRef(0)} className="relative overflow-hidden opacity-0">
         <div className="absolute inset-0">
           <img src={heroImg} alt="Arabic shawarma" className="h-full w-full object-cover" />
           <div className="absolute inset-0 bg-gradient-hero" />
@@ -344,7 +439,7 @@ function Home() {
         <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 min-h-[92vh] flex items-center">
           <div className="max-w-2xl py-24 text-white">
             <span className="inline-flex items-center gap-2 rounded-full border border-gold/40 bg-gold/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.2em] text-gold backdrop-blur-sm">
-              <i className="fa-solid fa-truck-fast" /> Delivery All Over Karachi
+              <Truck className="h-3.5 w-3.5" /> Delivery All Over Karachi
             </span>
             <h1 className="mt-6 font-display text-5xl font-black leading-[1.05] sm:text-7xl lg:text-8xl">
               Al-Arab
@@ -357,7 +452,7 @@ function Home() {
 
             {/* Heritage Badge */}
             <div className="mt-6 inline-flex items-center gap-3 rounded-2xl border border-gold/50 bg-gradient-to-r from-gold/20 via-gold/10 to-transparent px-5 py-3 backdrop-blur-sm shadow-gold-glow">
-              <i className="fa-solid fa-award text-gold text-2xl" />
+              <Award className="h-7 w-7 text-gold" />
               <div className="leading-tight">
                 <div className="text-[10px] uppercase tracking-[0.28em] text-gold/80 font-semibold">A Legacy of Flavor</div>
                 <div className="font-display text-base sm:text-lg font-black text-gradient-gold">
@@ -367,29 +462,29 @@ function Home() {
             </div>
 
             <div className="mt-6 flex flex-wrap gap-3 text-sm text-white/85">
-              <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 backdrop-blur"><i className="fa-solid fa-clock text-gold" /> Open 4 PM – 4 AM</span>
-              <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 backdrop-blur"><i className="fa-solid fa-motorcycle text-gold" /> Delivery till 2 AM</span>
+              <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 backdrop-blur"><ClockIcon className="h-3.5 w-3.5 text-gold" /> Open 4 PM – 4 AM</span>
+              <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 backdrop-blur"><Bike className="h-3.5 w-3.5 text-gold" /> Delivery till 2 AM</span>
             </div>
 
             <div className="mt-8 flex flex-wrap gap-4">
               <a href="#menu" className="group inline-flex items-center gap-3 rounded-full bg-gold px-7 py-4 text-base font-bold text-gold-foreground shadow-gold-glow hover:scale-105 transition-transform">
-                <i className="fa-solid fa-utensils" /> View Menu
-                <i className="fa-solid fa-arrow-right transition-transform group-hover:translate-x-1" />
+                <UtensilsCrossed className="h-5 w-5" /> View Menu
+                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
               </a>
               <a href="#checkout" className="inline-flex items-center gap-3 rounded-full border-2 border-white/30 bg-white/10 px-7 py-4 text-base font-bold text-white backdrop-blur-sm hover:bg-white hover:text-brand transition-colors">
-                <i className="fa-solid fa-bag-shopping" /> Order Now
+                <ShoppingBag className="h-5 w-5" /> Order Now
               </a>
             </div>
 
             <div className="mt-10 grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-xl">
               {[
-                { i: "fa-leaf", t: "Fresh Ingredients" },
-                { i: "fa-certificate", t: "Halal Food" },
-                { i: "fa-bolt", t: "Fast Delivery" },
-                { i: "fa-star", t: "Authentic Taste" },
+                { Icon: Leaf, t: "Fresh Ingredients" },
+                { Icon: BadgeCheck, t: "Halal Food" },
+                { Icon: Zap, t: "Fast Delivery" },
+                { Icon: Star, t: "Authentic Taste" },
               ].map((b) => (
                 <div key={b.t} className="flex items-center gap-2 rounded-xl bg-white/10 px-3 py-2.5 backdrop-blur border border-white/10">
-                  <i className={`fa-solid ${b.i} text-gold`} />
+                  <b.Icon className="h-3.5 w-3.5 text-gold" />
                   <span className="text-xs font-semibold">{b.t}</span>
                 </div>
               ))}
@@ -399,7 +494,7 @@ function Home() {
       </section>
 
       {/* ABOUT */}
-      <section id="about" className="py-24 bg-cream">
+      <section id="about" ref={setSectionRef(1)} className="py-24 bg-cream opacity-0">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 grid lg:grid-cols-2 gap-12 items-center">
           <div className="relative rounded-3xl overflow-hidden shadow-card-soft aspect-[4/3]">
             <img src={spitImg} alt="Live shawarma spit" className="absolute inset-0 h-full w-full object-cover" />
@@ -419,13 +514,13 @@ function Home() {
             </p>
             <div className="mt-8 grid grid-cols-2 gap-4">
               {[
-                { i: "fa-utensils", t: "Authentic Arabic Recipes" },
-                { i: "fa-leaf", t: "Fresh Ingredients Daily" },
-                { i: "fa-shield-heart", t: "Hygienic Kitchen" },
-                { i: "fa-user-chef", t: "Experienced Chefs" },
+                { Icon: UtensilsCrossed, t: "Authentic Arabic Recipes" },
+                { Icon: Leaf, t: "Fresh Ingredients Daily" },
+                { Icon: ShieldCheck, t: "Hygienic Kitchen" },
+                { Icon: ChefHat, t: "Experienced Chefs" },
               ].map((f) => (
                 <div key={f.t} className="flex items-center gap-3 rounded-xl bg-card p-4 border border-border shadow-card-soft">
-                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-gradient-brand text-brand-foreground"><i className={`fa-solid ${f.i}`} /></span>
+                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-gradient-brand text-brand-foreground"><f.Icon className="h-5 w-5" /></span>
                   <span className="text-sm font-semibold">{f.t}</span>
                 </div>
               ))}
@@ -435,7 +530,7 @@ function Home() {
       </section>
 
       {/* MENU */}
-      <section id="menu" className="py-24 bg-background">
+      <section id="menu" ref={setSectionRef(2)} className="py-24 bg-background opacity-0">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto">
             <span className="text-xs uppercase tracking-[0.3em] text-brand font-bold">Our Menu</span>
@@ -462,7 +557,7 @@ function Home() {
               ))}
             </div>
             <div className="relative sm:w-72">
-              <i className="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -481,7 +576,7 @@ function Home() {
       </section>
 
       {/* DELIVERY */}
-      <section id="delivery" className="py-24 bg-ink text-cream">
+      <section id="delivery" ref={setSectionRef(3)} className="py-24 bg-ink text-cream opacity-0">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto">
             <span className="text-xs uppercase tracking-[0.3em] text-gold font-bold">Delivery</span>
@@ -506,7 +601,7 @@ function Home() {
       </section>
 
       {/* CHECKOUT */}
-      <section id="checkout" className="py-24 bg-cream">
+      <section id="checkout" ref={setSectionRef(4)} className="py-24 bg-cream opacity-0">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto">
             <span className="text-xs uppercase tracking-[0.3em] text-brand font-bold">Checkout</span>
@@ -521,10 +616,12 @@ function Home() {
                 <h3 className="font-display text-2xl font-bold">Delivery Details</h3>
                 <div className="mt-6 grid sm:grid-cols-2 gap-4">
                   <Field label="Full Name" icon="fa-user">
-                    <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="field" placeholder="Ahmed Ali" maxLength={80} />
+                    <input {...register("name")} className={`field ${errors.name ? "field-error" : ""}`} placeholder="Ahmed Ali" />
+                    {errors.name && <p className="mt-1 text-xs text-destructive">{errors.name.message}</p>}
                   </Field>
                   <Field label="Mobile Number" icon="fa-phone">
-                    <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="field" placeholder="03XX-XXXXXXX" maxLength={20} />
+                    <input {...register("phone")} className={`field ${errors.phone ? "field-error" : ""}`} placeholder="03XX-XXXXXXX" />
+                    {errors.phone && <p className="mt-1 text-xs text-destructive">{errors.phone.message}</p>}
                   </Field>
                   <div className="sm:col-span-2 relative">
                     <Field label="Delivery Area" icon="fa-location-dot">
@@ -557,12 +654,13 @@ function Home() {
                   </div>
                   <div className="sm:col-span-2">
                     <Field label="Complete Address" icon="fa-map-location-dot">
-                      <textarea value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} className="field min-h-20" placeholder="House #, street, landmark" maxLength={300} />
+                      <textarea {...register("address")} className={`field min-h-20 ${errors.address ? "field-error" : ""}`} placeholder="House #, street, landmark" />
+                      {errors.address && <p className="mt-1 text-xs text-destructive">{errors.address.message}</p>}
                     </Field>
                   </div>
                   <div className="sm:col-span-2">
                     <Field label="Order Notes (optional)" icon="fa-pen">
-                      <textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} className="field min-h-16" placeholder="Extra sauce, no onions, etc." maxLength={300} />
+                      <textarea {...register("notes")} className="field min-h-16" placeholder="Extra sauce, no onions, etc." />
                     </Field>
                   </div>
                 </div>
@@ -571,15 +669,15 @@ function Home() {
               {/* PAYMENT */}
               <div className="rounded-3xl bg-card p-6 sm:p-8 shadow-card-soft border border-border">
                 <h3 className="font-display text-2xl font-bold flex items-center gap-3">
-                  <i className="fa-solid fa-credit-card text-brand" /> Payment Method
+                  <CreditCard className="h-6 w-6 text-brand" /> Payment Method
                 </h3>
                 <p className="mt-2 text-sm text-muted-foreground">Choose how you'd like to pay. Online payment details below.</p>
 
                 <div className="mt-5 grid sm:grid-cols-3 gap-3">
                   {([
-                    { id: "cod" as const, t: "Cash on Delivery", i: "fa-money-bill-wave" },
-                    { id: "easypaisa" as const, t: "Easypaisa", i: "fa-mobile-screen" },
-                    { id: "bank" as const, t: "Bank Transfer", i: "fa-building-columns" },
+                    { id: "cod" as const, t: "Cash on Delivery", Icon: Banknote },
+                    { id: "easypaisa" as const, t: "Easypaisa", Icon: Smartphone },
+                    { id: "bank" as const, t: "Bank Transfer", Icon: Building2 },
                   ]).map((p) => (
                     <button
                       key={p.id}
@@ -593,7 +691,7 @@ function Home() {
                     >
                       <div className="flex items-center gap-3">
                         <span className={`grid h-10 w-10 place-items-center rounded-xl ${payment === p.id ? "bg-gradient-brand text-brand-foreground" : "bg-muted text-foreground"}`}>
-                          <i className={`fa-solid ${p.i}`} />
+                          <p.Icon className="h-5 w-5" />
                         </span>
                         <div>
                           <div className="font-bold text-sm">{p.t}</div>
@@ -609,7 +707,7 @@ function Home() {
                 {payment === "easypaisa" && (
                   <div className="mt-6 rounded-2xl border border-gold/40 bg-gradient-to-br from-gold/10 to-transparent p-5">
                     <div className="flex items-center gap-2 text-gold font-bold text-sm uppercase tracking-wider">
-                      <i className="fa-solid fa-mobile-screen" /> Easypaisa Details
+                      <Smartphone className="h-4 w-4" /> Easypaisa Details
                     </div>
                     <div className="mt-4 space-y-3">
                       <CopyRow label="Account Number" value={EASYPAISA_NUMBER} onCopy={() => copy(EASYPAISA_NUMBER, "easy-num")} copied={copied === "easy-num"} mono />
@@ -622,7 +720,7 @@ function Home() {
                 {payment === "bank" && (
                   <div className="mt-6 rounded-2xl border border-gold/40 bg-gradient-to-br from-gold/10 to-transparent p-5">
                     <div className="flex items-center gap-2 text-gold font-bold text-sm uppercase tracking-wider">
-                      <i className="fa-solid fa-building-columns" /> Bank Transfer Details
+                      <Building2 className="h-4 w-4" /> Bank Transfer Details
                     </div>
                     <div className="mt-4 grid sm:grid-cols-[auto_1fr] gap-5 items-start">
                       <div className="mx-auto sm:mx-0">
@@ -666,7 +764,6 @@ function Home() {
               )}
               <div className="mt-6 border-t border-white/10 pt-4 space-y-2 text-sm">
                 <Row k="Subtotal" v={fmt(subtotal)} />
-                <Row k="Sales Tax (15%)" v={fmt(tax)} />
                 <Row k={`Delivery${selectedArea ? ` · ${selectedArea.zone}` : ""}`} v={selectedArea ? fmt(delivery) : "—"} />
                 <Row k="Payment" v={payment === "cod" ? "Cash on Delivery" : payment === "easypaisa" ? "Easypaisa" : "Bank Transfer"} />
                 <div className="flex justify-between pt-3 border-t border-white/10 text-lg">
@@ -675,10 +772,12 @@ function Home() {
                 </div>
               </div>
               <button
-                onClick={placeOrder}
-                className="mt-6 w-full inline-flex items-center justify-center gap-2 rounded-full bg-whatsapp py-4 font-bold text-white hover:scale-[1.02] transition-transform shadow-2xl"
+                onClick={handleSubmit(onOrder)}
+                disabled={ordering}
+                className="mt-6 w-full inline-flex items-center justify-center gap-2 rounded-full bg-whatsapp py-4 font-bold text-white hover:scale-[1.02] transition-transform disabled:opacity-60 disabled:cursor-not-allowed shadow-2xl"
               >
-                <i className="fa-brands fa-whatsapp text-xl" /> Confirm via WhatsApp
+                {ordering ? <Loader className="h-5 w-5 animate-spin" /> : <MessageCircle className="h-5 w-5" />}
+                {ordering ? "Sending..." : "Confirm via WhatsApp"}
               </button>
               <p className="mt-3 text-xs text-cream/60 text-center">No app needed. Order confirmation via WhatsApp.</p>
             </aside>
@@ -687,7 +786,7 @@ function Home() {
       </section>
 
       {/* WHY US */}
-      <section className="py-24 bg-background">
+      <section ref={setSectionRef(5)} className="py-24 bg-background opacity-0">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto">
             <span className="text-xs uppercase tracking-[0.3em] text-brand font-bold">Why Choose Us</span>
@@ -697,15 +796,15 @@ function Home() {
           </div>
           <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {[
-              { i: "fa-star", t: "Authentic Arabic Taste", d: "Recipes straight from the streets of Arabia." },
-              { i: "fa-leaf", t: "Fresh Ingredients", d: "Sourced daily, never frozen." },
-              { i: "fa-gem", t: "Premium Quality", d: "Made with care, served with pride." },
-              { i: "fa-shield-heart", t: "Hygienic Kitchen", d: "Spotless prep area, certified clean." },
-              { i: "fa-bolt", t: "Fast Delivery", d: "Hot at your door across Karachi." },
-              { i: "fa-tag", t: "Affordable Prices", d: "Premium taste, honest pricing." },
+              { Icon: Star, t: "Authentic Arabic Taste", d: "Recipes straight from the streets of Arabia." },
+              { Icon: Leaf, t: "Fresh Ingredients", d: "Sourced daily, never frozen." },
+              { Icon: Gem, t: "Premium Quality", d: "Made with care, served with pride." },
+              { Icon: ShieldCheck, t: "Hygienic Kitchen", d: "Spotless prep area, certified clean." },
+              { Icon: Zap, t: "Fast Delivery", d: "Hot at your door across Karachi." },
+              { Icon: Tag, t: "Affordable Prices", d: "Premium taste, honest pricing." },
             ].map((f) => (
               <div key={f.t} className="rounded-2xl bg-card border border-border p-6 shadow-card-soft hover:shadow-brand hover:-translate-y-1 transition-all">
-                <span className="grid h-12 w-12 place-items-center rounded-xl bg-gradient-brand text-brand-foreground shadow-brand"><i className={`fa-solid ${f.i} text-lg`} /></span>
+                <span className="grid h-12 w-12 place-items-center rounded-xl bg-gradient-brand text-brand-foreground shadow-brand"><f.Icon className="h-5 w-5" /></span>
                 <h3 className="mt-4 font-display text-xl font-bold">{f.t}</h3>
                 <p className="mt-2 text-sm text-muted-foreground">{f.d}</p>
               </div>
@@ -715,7 +814,7 @@ function Home() {
       </section>
 
       {/* LOCATION */}
-      <section id="location" className="py-24 bg-cream">
+      <section id="location" ref={setSectionRef(6)} className="py-24 bg-cream opacity-0">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto">
             <span className="text-xs uppercase tracking-[0.3em] text-brand font-bold">Visit Us</span>
@@ -726,13 +825,13 @@ function Home() {
           <div className="mt-14 grid lg:grid-cols-5 gap-8">
             <div className="lg:col-span-2 space-y-4">
               {[
-                { i: "fa-location-dot", t: "Our Address", v: "Main Sharfabad Signal, Karachi, Pakistan" },
-                { i: "fa-clock", t: "Restaurant Hours", v: "4:00 PM – 4:00 AM · Daily" },
-                { i: "fa-motorcycle", t: "Delivery Hours", v: "4:00 PM – 2:00 AM · Daily" },
-                { i: "fa-phone", t: "Call Us", v: "0333-3686848" },
+                { Icon: MapPin, t: "Our Address", v: "Main Sharfabad Signal, Karachi, Pakistan" },
+                { Icon: ClockIcon, t: "Restaurant Hours", v: "4:00 PM – 4:00 AM · Daily" },
+                { Icon: Bike, t: "Delivery Hours", v: "4:00 PM – 2:00 AM · Daily" },
+                { Icon: Phone, t: "Call Us", v: "0333-3686848" },
               ].map((c) => (
                 <div key={c.t} className="flex gap-4 rounded-2xl border border-border bg-card p-5 shadow-card-soft hover:border-brand/40 transition-colors">
-                  <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-gradient-brand text-brand-foreground shadow-brand"><i className={`fa-solid ${c.i} text-lg`} /></span>
+                  <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-gradient-brand text-brand-foreground shadow-brand"><c.Icon className="h-5 w-5" /></span>
                   <div className="min-w-0">
                     <div className="text-xs uppercase tracking-wider text-muted-foreground">{c.t}</div>
                     <div className="mt-1 font-semibold text-foreground">{c.v}</div>
@@ -740,7 +839,7 @@ function Home() {
                 </div>
               ))}
               <a href="https://www.google.com/maps/search/?api=1&query=Sharfabad+Signal+Karachi" target="_blank" rel="noreferrer" className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-gold py-3.5 font-bold text-gold-foreground shadow-gold-glow hover:scale-[1.02] transition-transform">
-                <i className="fa-solid fa-diamond-turn-right" /> Get Directions
+                <ArrowRightFromLine className="h-4 w-4" /> Get Directions
               </a>
             </div>
             <div className="lg:col-span-3 rounded-3xl overflow-hidden border border-border shadow-card-soft min-h-[400px]">
@@ -751,7 +850,7 @@ function Home() {
       </section>
 
       {/* CONTACT */}
-      <section id="contact" className="py-24 bg-ink text-cream">
+      <section id="contact" ref={setSectionRef(7)} className="py-24 bg-ink text-cream opacity-0">
         <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
           <div className="text-center">
             <span className="text-xs uppercase tracking-[0.3em] text-gold font-bold">Contact</span>
@@ -759,11 +858,11 @@ function Home() {
           </div>
           <div className="mt-12 grid lg:grid-cols-2 gap-8">
             <div className="space-y-4">
-              <ContactRow i="fa-phone" t="Phone" v="0333-3686848" />
-              <ContactRow i="fa-location-dot" t="Address" v="Main Sharfabad Signal, Karachi" />
-              <ContactRow i="fa-clock" t="Hours" v="4:00 PM – 4:00 AM Daily" />
+              <ContactRow Icon={Phone} t="Phone" v="0333-3686848" />
+              <ContactRow Icon={MapPin} t="Address" v="Main Sharfabad Signal, Karachi" />
+              <ContactRow Icon={ClockIcon} t="Hours" v="4:00 PM – 4:00 AM Daily" />
               <a href={`https://wa.me/${WHATSAPP_NUMBER}`} target="_blank" rel="noreferrer" className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-whatsapp py-4 font-bold text-white hover:scale-[1.01] transition-transform">
-                <i className="fa-brands fa-whatsapp text-xl" /> Chat on WhatsApp
+                <MessageCircle className="h-5 w-5" /> Chat on WhatsApp
               </a>
             </div>
             <form
@@ -789,7 +888,7 @@ function Home() {
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 grid gap-10 md:grid-cols-4">
           <div className="md:col-span-2">
             <div className="flex items-center gap-3">
-              <img src={logoAsset.url} alt="Al-Arab Shawarma logo" className="h-12 w-12 rounded-full object-cover ring-2 ring-gold/60 bg-ink" />
+              <img src={logoSrc} alt="Al-Arab Shawarma logo" className="h-12 w-12 rounded-full object-cover ring-2 ring-gold/60 bg-ink" loading="lazy" />
               <div>
                 <div className="font-display text-2xl font-extrabold">Al-Arab <span className="text-gradient-gold">Shawarma</span></div>
                 <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Authentic Arabic Taste · Since 1998</div>
@@ -806,109 +905,105 @@ function Home() {
           <div>
             <h4 className="font-display text-lg">Delivery & Hours</h4>
             <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
-              <li><i className="fa-solid fa-location-dot text-brand mr-2" />Main Sharfabad Signal</li>
-              <li><i className="fa-solid fa-clock text-brand mr-2" />4 PM – 4 AM</li>
-              <li><i className="fa-solid fa-motorcycle text-brand mr-2" />Delivery till 2 AM</li>
-              <li><i className="fa-solid fa-phone text-brand mr-2" />0333-3686848</li>
+              <li><MapPin className="h-3.5 w-3.5 inline text-brand mr-2" />Main Sharfabad Signal</li>
+              <li><ClockIcon className="h-3.5 w-3.5 inline text-brand mr-2" />4 PM – 4 AM</li>
+              <li><Bike className="h-3.5 w-3.5 inline text-brand mr-2" />Delivery till 2 AM</li>
+              <li><Phone className="h-3.5 w-3.5 inline text-brand mr-2" />0333-3686848</li>
             </ul>
             <div className="mt-4 flex gap-3">
               {[
-                { i: "fa-facebook-f", h: "#" },
-                { i: "fa-instagram", h: "#" },
-                { i: "fa-tiktok", h: "#" },
-                { i: "fa-whatsapp", h: `https://wa.me/${WHATSAPP_NUMBER}` },
+                { Icon: Facebook, h: "#", label: "Facebook" },
+                { Icon: Instagram, h: "#", label: "Instagram" },
+                { Icon: MessageCircle, h: `https://wa.me/${WHATSAPP_NUMBER}`, label: "WhatsApp" },
               ].map((s) => (
-                <a key={s.i} href={s.h} target="_blank" rel="noreferrer" aria-label={s.i} className="grid h-10 w-10 place-items-center rounded-full bg-muted hover:bg-gold hover:text-gold-foreground transition-colors">
-                  <i className={`fa-brands ${s.i}`} />
+                <a key={s.label} href={s.h} target="_blank" rel="noreferrer" aria-label={s.label} className="grid h-10 w-10 place-items-center rounded-full bg-muted hover:bg-gold hover:text-gold-foreground transition-colors">
+                  <s.Icon className="h-4 w-4" />
                 </a>
               ))}
             </div>
           </div>
         </div>
         <div className="mt-12 border-t border-border pt-6 text-center text-xs text-muted-foreground">
-          © {new Date().getFullYear()} Al-Arab Shawarma. All rights reserved. · Made with <i className="fa-solid fa-heart text-brand" /> in Karachi
+          © {new Date().getFullYear()} Al-Arab Shawarma. All rights reserved. · Made with <Heart className="h-3 w-3 inline text-brand mx-0.5" /> in Karachi
         </div>
       </footer>
 
       {/* CART DRAWER */}
-      {cartOpen && (
-        <div className="fixed inset-0 z-50">
-          <div className="absolute inset-0 bg-ink/60 backdrop-blur-sm" onClick={() => setCartOpen(false)} />
-          <aside className="absolute right-0 top-0 h-full w-full max-w-md bg-background shadow-2xl flex flex-col">
-            <div className="flex items-center justify-between p-5 border-b border-border">
-              <h3 className="font-display text-2xl font-bold">Your Cart <span className="text-muted-foreground text-base">({itemCount})</span></h3>
-              <button onClick={() => setCartOpen(false)} className="grid h-10 w-10 place-items-center rounded-full hover:bg-muted"><i className="fa-solid fa-xmark text-lg" /></button>
-            </div>
-            <div className="flex-1 overflow-auto p-5 space-y-3">
-              {lines.length === 0 ? (
-                <div className="text-center py-20">
-                  <i className="fa-solid fa-bag-shopping text-5xl text-muted-foreground/40" />
-                  <p className="mt-4 text-muted-foreground">Your cart is empty.</p>
-                  <button onClick={() => setCartOpen(false)} className="mt-6 inline-flex items-center gap-2 rounded-full bg-gradient-brand text-brand-foreground px-5 py-2.5 text-sm font-semibold">Browse menu</button>
-                </div>
-              ) : (
-                lines.map((l) => (
-                  <div key={l.item.id} className="flex gap-3 rounded-2xl border border-border p-3">
-                    <img src={l.item.image} alt={l.item.name} className="h-16 w-16 rounded-xl object-cover" />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex justify-between gap-2">
-                        <div className="font-semibold truncate">{l.item.name}</div>
-                        <button onClick={() => remove(l.item.id)} className="text-muted-foreground hover:text-destructive"><i className="fa-solid fa-trash text-sm" /></button>
-                      </div>
-                      <div className="text-sm text-brand font-bold mt-1">{fmt(l.item.price)}</div>
-                      <div className="mt-2 flex items-center justify-between">
-                        <QtyControl qty={l.qty} onAdd={() => add(l.item.id)} onDec={() => dec(l.item.id)} />
-                        <div className="font-bold">{fmt(l.item.price * l.qty)}</div>
-                      </div>
+      <Sheet open={cartOpen} onOpenChange={setCartOpen}>
+        <SheetContent className="w-full max-w-md p-0 flex flex-col [&>button:first-child]:hidden">
+          <div className="flex items-center justify-between p-5 border-b border-border">
+            <SheetTitle className="font-display text-2xl font-bold">Your Cart <span className="text-muted-foreground text-base">({itemCount})</span></SheetTitle>
+            <SheetClose className="grid h-10 w-10 place-items-center rounded-full hover:bg-muted cursor-pointer">
+              <X className="h-5 w-5" />
+            </SheetClose>
+          </div>
+          <div className="flex-1 overflow-auto p-5 space-y-3">
+            {lines.length === 0 ? (
+              <div className="text-center py-20">
+                <ShoppingBag className="h-12 w-12 mx-auto text-muted-foreground/40" />
+                <p className="mt-4 text-muted-foreground">Your cart is empty.</p>
+                <SheetClose className="mt-6 inline-flex items-center gap-2 rounded-full bg-gradient-brand text-brand-foreground px-5 py-2.5 text-sm font-semibold">Browse menu</SheetClose>
+              </div>
+            ) : (
+              lines.map((l) => (
+                <div key={l.item.id} className="flex gap-3 rounded-2xl border border-border p-3">
+                  <img src={l.item.image} alt={l.item.name} className="h-16 w-16 rounded-xl object-cover" loading="lazy" />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex justify-between gap-2">
+                      <div className="font-semibold truncate">{l.item.name}</div>
+                      <button onClick={() => remove(l.item.id)} className="text-muted-foreground hover:text-destructive">
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                    <div className="text-sm text-brand font-bold mt-1">{fmt(l.item.price)}</div>
+                    <div className="mt-2 flex items-center justify-between">
+                      <QtyControl qty={l.qty} onAdd={() => add(l.item.id)} onDec={() => dec(l.item.id)} />
+                      <div className="font-bold">{fmt(l.item.price * l.qty)}</div>
                     </div>
                   </div>
-                ))
-              )}
-            </div>
-            {lines.length > 0 && (
-              <div className="p-5 border-t border-border space-y-3">
-                <div className="flex justify-between text-sm"><span>Subtotal</span><span className="font-semibold">{fmt(subtotal)}</span></div>
-                <div className="flex justify-between text-sm"><span>Tax (15%)</span><span className="font-semibold">{fmt(tax)}</span></div>
-                <a href="#checkout" onClick={() => setCartOpen(false)} className="block text-center rounded-full bg-gradient-brand text-brand-foreground py-3.5 font-bold shadow-brand hover:scale-[1.02] transition-transform">
-                  Checkout — {fmt(subtotal + tax)}
-                </a>
-              </div>
+                </div>
+              ))
             )}
-          </aside>
-        </div>
-      )}
+          </div>
+          {lines.length > 0 && (
+            <div className="p-5 border-t border-border space-y-3">
+              <div className="flex justify-between text-sm"><span>Subtotal</span><span className="font-semibold">{fmt(subtotal)}</span></div>
+              <a href="#checkout" onClick={() => setCartOpen(false)} className="block text-center rounded-full bg-gradient-brand text-brand-foreground py-3.5 font-bold shadow-brand hover:scale-[1.02] transition-transform">
+                Checkout — {fmt(subtotal)}
+              </a>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
 
       {/* CONFIRMATION */}
-      {confirmOpen && (
-        <div className="fixed inset-0 z-50 grid place-items-center p-4">
-          <div className="absolute inset-0 bg-ink/70 backdrop-blur-sm" onClick={() => setConfirmOpen(false)} />
-          <div className="relative w-full max-w-md rounded-3xl bg-background p-8 text-center shadow-2xl">
-            <div className="grid h-20 w-20 mx-auto place-items-center rounded-full bg-whatsapp text-white text-4xl"><i className="fa-solid fa-check" /></div>
-            <h3 className="mt-5 font-display text-3xl font-bold">Order Sent!</h3>
-            <p className="mt-2 text-muted-foreground">Your order has been opened in WhatsApp. Hit send to confirm and we'll get it on the grill.</p>
-            <button onClick={() => { setConfirmOpen(false); setCart({}); }} className="mt-6 w-full rounded-full bg-gradient-brand text-brand-foreground py-3.5 font-bold">Done</button>
-          </div>
-        </div>
-      )}
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <div className="grid h-20 w-20 mx-auto place-items-center rounded-full bg-whatsapp text-white">
+              <Check className="h-8 w-8" />
+            </div>
+            <DialogTitle className="font-display text-3xl font-bold text-center mt-5">Order Sent!</DialogTitle>
+            <DialogDescription className="text-muted-foreground text-center mt-2">
+              Your order has been opened in WhatsApp. Hit send to confirm and we'll get it on the grill.
+            </DialogDescription>
+          </DialogHeader>
+          <button onClick={() => { setConfirmOpen(false); setCart({}); }} className="w-full rounded-full bg-gradient-brand text-brand-foreground py-3.5 font-bold hover:opacity-90 transition-opacity">
+            Done
+          </button>
+        </DialogContent>
+      </Dialog>
 
       {/* FLOATING BUTTONS */}
-      <a href={`https://wa.me/${WHATSAPP_NUMBER}`} target="_blank" rel="noreferrer" aria-label="WhatsApp" className="fixed bottom-6 right-6 z-40 grid h-14 w-14 place-items-center rounded-full bg-whatsapp text-white text-2xl shadow-2xl hover:scale-110 transition-transform animate-float">
-        <i className="fa-brands fa-whatsapp" />
+      <a href={`https://wa.me/${WHATSAPP_NUMBER}`} target="_blank" rel="noreferrer" aria-label="WhatsApp" className="fixed bottom-6 right-6 z-40 grid h-14 w-14 place-items-center rounded-full bg-whatsapp text-white shadow-2xl hover:scale-110 transition-transform animate-float">
+        <MessageCircle className="h-6 w-6" />
         <span className="absolute inset-0 rounded-full ring-4 ring-whatsapp/40 animate-ping" />
       </a>
       {showTop && (
         <button onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} aria-label="Back to top" className="fixed bottom-24 right-6 z-40 grid h-12 w-12 place-items-center rounded-full bg-ink text-cream shadow-2xl hover:scale-110 transition-transform">
-          <i className="fa-solid fa-arrow-up" />
+          <ArrowUp className="h-5 w-5" />
         </button>
       )}
-
-      <style>{`
-        .field { width:100%; padding:.75rem 1rem; border-radius:.75rem; background:var(--card); border:1px solid var(--border); color:var(--foreground); font-size:.95rem; }
-        .field:focus { outline:none; border-color:var(--brand); box-shadow:0 0 0 3px oklch(0.48 0.20 25 / .15); }
-        .field-dark { width:100%; padding:.85rem 1rem; border-radius:.75rem; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.1); color:var(--cream); font-size:.95rem; }
-        .field-dark:focus { outline:none; border-color:var(--gold); }
-        .field-dark::placeholder { color: oklch(0.97 0.02 85 / .5); }
-      `}</style>
     </div>
   );
 }
@@ -916,7 +1011,7 @@ function Home() {
 function MenuCard({ item, qty, onAdd, onDec }: { item: Item; qty: number; onAdd: () => void; onDec: () => void }) {
   return (
     <article className="group rounded-3xl bg-card border border-border shadow-card-soft overflow-hidden hover:shadow-brand hover:-translate-y-1 transition-all">
-      <div className="relative h-48 overflow-hidden">
+      <div className="relative h-48 overflow-hidden bg-muted/50">
         <img src={item.image} alt={item.name} loading="lazy" className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110" />
         <span className="absolute top-3 left-3 rounded-full bg-ink/70 text-cream text-[10px] uppercase tracking-wider px-2.5 py-1 backdrop-blur">{item.category}</span>
         <span className="absolute top-3 right-3 rounded-full bg-gold text-gold-foreground font-bold text-sm px-3 py-1 shadow-gold-glow">{fmt(item.price)}</span>
@@ -927,7 +1022,7 @@ function MenuCard({ item, qty, onAdd, onDec }: { item: Item; qty: number; onAdd:
         <div className="mt-4 flex items-center justify-between gap-3">
           {qty > 0 ? <QtyControl qty={qty} onAdd={onAdd} onDec={onDec} /> : <span className="text-xs text-muted-foreground">Tap to add</span>}
           <button onClick={onAdd} className="inline-flex items-center gap-2 rounded-full bg-gradient-brand text-brand-foreground px-4 py-2.5 text-sm font-bold shadow-brand hover:scale-105 transition-transform">
-            <i className="fa-solid fa-plus" /> Add
+            <Plus className="h-4 w-4" /> Add
           </button>
         </div>
       </div>
@@ -938,9 +1033,9 @@ function MenuCard({ item, qty, onAdd, onDec }: { item: Item; qty: number; onAdd:
 function QtyControl({ qty, onAdd, onDec }: { qty: number; onAdd: () => void; onDec: () => void }) {
   return (
     <div className="inline-flex items-center rounded-full border border-border bg-background">
-      <button onClick={onDec} className="grid h-9 w-9 place-items-center hover:text-brand"><i className="fa-solid fa-minus text-sm" /></button>
+      <button onClick={onDec} className="grid h-9 w-9 place-items-center hover:text-brand"><Minus className="h-3.5 w-3.5" /></button>
       <span className="w-8 text-center font-bold">{qty}</span>
-      <button onClick={onAdd} className="grid h-9 w-9 place-items-center hover:text-brand"><i className="fa-solid fa-plus text-sm" /></button>
+      <button onClick={onAdd} className="grid h-9 w-9 place-items-center hover:text-brand"><Plus className="h-3.5 w-3.5" /></button>
     </div>
   );
 }
@@ -948,7 +1043,9 @@ function QtyControl({ qty, onAdd, onDec }: { qty: number; onAdd: () => void; onD
 function Field({ label, icon, children }: { label: string; icon: string; children: React.ReactNode }) {
   return (
     <label className="block">
-      <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2"><i className={`fa-solid ${icon} text-brand`} /> {label}</span>
+      <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+        <Icon name={icon} className="h-3.5 w-3.5 text-brand" /> {label}
+      </span>
       <div className="mt-1.5">{children}</div>
     </label>
   );
@@ -963,10 +1060,10 @@ function Row({ k, v }: { k: string; v: string }) {
   );
 }
 
-function ContactRow({ i, t, v }: { i: string; t: string; v: string }) {
+function ContactRow({ Icon: IconComp, t, v }: { Icon: React.ComponentType<{ className?: string }>; t: string; v: string }) {
   return (
     <div className="flex gap-4 rounded-2xl border border-white/10 bg-white/5 p-5">
-      <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-gold text-gold-foreground"><i className={`fa-solid ${i} text-lg`} /></span>
+      <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-gold text-gold-foreground"><IconComp className="h-5 w-5" /></span>
       <div>
         <div className="text-xs uppercase tracking-wider text-cream/60">{t}</div>
         <div className="mt-1 font-semibold">{v}</div>
@@ -989,7 +1086,7 @@ function CopyRow({ label, value, onCopy, copied, mono }: { label: string; value:
           copied ? "bg-whatsapp text-white" : "bg-gradient-brand text-brand-foreground hover:scale-105"
         }`}
       >
-        <i className={`fa-solid ${copied ? "fa-check" : "fa-copy"}`} />
+        {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
         {copied ? "Copied" : "Copy"}
       </button>
     </div>
@@ -999,7 +1096,7 @@ function CopyRow({ label, value, onCopy, copied, mono }: { label: string; value:
 function PaymentNote() {
   return (
     <p className="mt-4 text-xs leading-relaxed text-foreground/75 rounded-lg bg-background/60 border border-border p-3">
-      <i className="fa-solid fa-circle-info text-brand mr-1.5" />
+      <Info className="h-3.5 w-3.5 inline text-brand mr-1.5" />
       Please transfer the total amount, take a screenshot of the receipt, and confirm your order. The details will be forwarded directly to our WhatsApp for verification.
     </p>
   );
