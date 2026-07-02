@@ -16,6 +16,7 @@ import olivesImg from "@/assets/olives.jpg";
 import cheeseSliceImg from "@/assets/cheese-slice.jpg";
 import spitImg from "@/assets/spit.jpg";
 import wingsImg from "@/assets/wings.jpg";
+import cornSoupImg from "@/assets/corn-soup.jfif";
 import soupImg from "@/assets/soup.jpg";
 import pitaFlatbreadStackImg from "@/assets/pita-flatbread-stack.jpg";
 import garlicToumWhiteBowlImg from "@/assets/garlic-toum-white-bowl.jpg";
@@ -177,7 +178,7 @@ const MENU: Item[] = [
   { id: "fr4", name: "Masala Fries", price: 299, desc: "Spicy desi-style masala fries.", image: masalaFriesImg, category: "Fries" },
   { id: "fr5", name: "Plain Fries", price: 250, desc: "Classic golden plain fries.", image: plainFriesImg, category: "Fries" },
   // Soup
-  { id: "sp1", name: "Chicken Corn Soup", price: 290, desc: "Hot creamy chicken & sweet corn soup.", image: soupImg, category: "Soup" },
+  { id: "sp1", name: "Chicken Corn Soup", price: 290, desc: "Hot creamy chicken & sweet corn soup.", image: cornSoupImg, category: "Soup" },
   { id: "sp2", name: "Hot & Sour Soup", price: 340, desc: "Tangy spicy hot & sour chicken soup.", image: soupImg, category: "Soup" },
   // Extras
   { id: "e1", name: "Olive", price: 100, desc: "Fresh marinated olives.", image: olivesImg, category: "Extras" },
