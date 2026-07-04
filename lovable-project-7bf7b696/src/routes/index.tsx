@@ -2,10 +2,10 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import heroImg from "@/assets/hero-shawarma.jpg";
 import platterImg from "@/assets/platter.jfif";
+import falafelPlatterImg from "@/assets/falafel-platter.jfif";
 import burgerGrillImg from "@/assets/burger-grill.jpg";
 import burgerCrispyImg from "@/assets/burger-crispy.jpg";
 
-import dynamiteChickenImg from "@/assets/dynamite-chicken.jpg";
 import broastChestImg from "@/assets/broast-chest.jpg";
 import broastLegImg from "@/assets/broast-leg.jpg";
 import olivesImg from "@/assets/olives.jpg";
@@ -156,12 +156,11 @@ const MENU: Item[] = [
   { id: "p1", name: "Large Chicken Special", price: 1500, desc: "Large platter feast — shareable & loaded.", image: platterImg, category: "Platters" },
   { id: "p2", name: "Medium Chicken Special", price: 1000, desc: "Perfect medium platter for two.", image: platterImg, category: "Platters" },
   { id: "p3", name: "Small Chicken Special", price: 700, desc: "Solo platter packed with flavor.", image: platterImg, category: "Platters" },
-  { id: "p4", name: "Full Falafel Special", price: 1400, desc: "Full falafel platter with hummus & sauces.", image: platterImg, category: "Platters" },
-  { id: "p5", name: "Half Falafel Special", price: 750, desc: "Half falafel platter, big on taste.", image: platterImg, category: "Platters" },
+  { id: "p4", name: "Full Falafel Special", price: 1400, desc: "Full falafel platter with hummus & sauces.", image: falafelPlatterImg, category: "Platters" },
+  { id: "p5", name: "Half Falafel Special", price: 750, desc: "Half falafel platter, big on taste.", image: falafelPlatterImg, category: "Platters" },
   // Fast Food
   { id: "f1", name: "Al-Arab Grill Burger", price: 549, desc: "Juicy flame-grilled chicken burger.", image: burgerGrillImg, category: "Fast Food" },
   { id: "f2", name: "Al-Arab Crispy Burger", price: 499, desc: "Golden crispy fried chicken burger.", image: burgerCrispyImg, category: "Fast Food" },
-  { id: "f5", name: "Dinamite Chicken", price: 600, desc: "Spicy crispy dynamite chicken bites.", image: dynamiteChickenImg, category: "Fast Food" },
   { id: "f6", name: "Crispy Fried Chicken (Chest)", price: 699, desc: "Tender crispy fried chicken breast.", image: broastChestImg, category: "Fast Food" },
   { id: "f7", name: "Crispy Fried Chicken (Leg)", price: 699, desc: "Juicy crispy fried chicken leg piece.", image: broastLegImg, category: "Fast Food" },
   // Wings
