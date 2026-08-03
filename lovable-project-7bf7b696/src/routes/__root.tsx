@@ -92,11 +92,31 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:title", content: "Al-Arab Shawarma — Authentic Arabic Shawarma in Karachi" },
-      { name: "description", content: "Al-Arab Shawarma Website: A mobile-responsive, single-page site for ordering authentic Arabic shawarma." },
-      { property: "og:description", content: "Al-Arab Shawarma Website: A mobile-responsive, single-page site for ordering authentic Arabic shawarma." },
-      { name: "twitter:description", content: "Al-Arab Shawarma Website: A mobile-responsive, single-page site for ordering authentic Arabic shawarma." },
-      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/ee95f11d-64f1-4b94-9346-17e8a25e6918/id-preview-9e556af1--7bf7b696-d493-4899-8d3b-67eb73c8d30c.lovable.app-1781224475761.png" },
-      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/ee95f11d-64f1-4b94-9346-17e8a25e6918/id-preview-9e556af1--7bf7b696-d493-4899-8d3b-67eb73c8d30c.lovable.app-1781224475761.png" },
+      {
+        name: "description",
+        content:
+          "Al-Arab Shawarma Website: A mobile-responsive, single-page site for ordering authentic Arabic shawarma.",
+      },
+      {
+        property: "og:description",
+        content:
+          "Al-Arab Shawarma Website: A mobile-responsive, single-page site for ordering authentic Arabic shawarma.",
+      },
+      {
+        name: "twitter:description",
+        content:
+          "Al-Arab Shawarma Website: A mobile-responsive, single-page site for ordering authentic Arabic shawarma.",
+      },
+      {
+        property: "og:image",
+        content:
+          "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/ee95f11d-64f1-4b94-9346-17e8a25e6918/id-preview-9e556af1--7bf7b696-d493-4899-8d3b-67eb73c8d30c.lovable.app-1781224475761.png",
+      },
+      {
+        name: "twitter:image",
+        content:
+          "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/ee95f11d-64f1-4b94-9346-17e8a25e6918/id-preview-9e556af1--7bf7b696-d493-4899-8d3b-67eb73c8d30c.lovable.app-1781224475761.png",
+      },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
@@ -106,7 +126,6 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         rel: "stylesheet",
         href: "https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;900&family=Inter:wght@400;500;600;700&family=Amiri:wght@700&display=swap",
       },
-
     ],
   }),
   shellComponent: RootShell,
