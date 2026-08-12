@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import heroImg from "@/assets/hero-shawarma.jpg";
 import platterImg from "@/assets/platter.jfif";
@@ -61,6 +62,10 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Toaster, toast } from "sonner";
 
+import { getPublicMenu } from "@/lib/api/menu.functions";
+import { ALL_AREAS, resolveArea, suggestAreas, ZONES } from "@/lib/delivery-areas";
+import { buildOrderMessage } from "@/lib/order-message";
+
 import { Sheet, SheetContent, SheetClose, SheetTitle } from "@/components/ui/sheet";
 import {
   Dialog,
@@ -102,7 +107,6 @@ import {
   ArrowUp,
   Gem,
   Tag,
-  Heart,
   Award,
   MessageCircle,
   Facebook,
@@ -155,8 +159,7 @@ export const Route = createFileRoute("/")({
         property: "og:description",
         content: "Authentic Arabic shawarma delivered across Karachi. Order via WhatsApp.",
       },
-      { property: "og:image", content: heroImg },
-      { property: "og:url", content: "/" },
+      { property: "og:site_name", content: "Al-Arab Shawarma" },
     ],
     links: [{ rel: "canonical", href: "/" }],
     scripts: [
@@ -171,11 +174,15 @@ export const Route = createFileRoute("/")({
             "@type": "PostalAddress",
             streetAddress: "Main Sharfabad Signal",
             addressLocality: "Karachi",
+            addressRegion: "Sindh",
             addressCountry: "PK",
           },
           telephone: "+92-333-3686848",
           openingHours: "Mo-Su 16:00-04:00",
           priceRange: "Rs. 30 – Rs. 1300",
+          areaServed: "Karachi",
+          hasMap: "https://www.google.com/maps?q=Sharfabad+Signal,+Karachi,+Pakistan",
+          acceptsReservations: "False",
         }),
       },
     ],
@@ -684,158 +691,10 @@ const CATEGORIES = [
   "Limca Flavoured Drinks",
 ];
 
-type Zone = { name: string; charge: number; areas: string[] };
-const ZONES: Zone[] = [
-  {
-    name: "Zone A",
-    charge: 140,
-    areas: [
-      "Bahadurabad",
-      "Sharfabad",
-      "Dawood Society",
-      "Kokan Society",
-      "C.P Berar",
-      "Dhoraji",
-      "Darul Aman",
-      "Hill Park",
-      "Liaqat National",
-      "Agha Khan",
-    ],
-  },
-  {
-    name: "Zone B",
-    charge: 160,
-    areas: [
-      "P.E.C.H.S Block 2 & 3",
-      "Ameer Khusro Road",
-      "Chandni Chowk",
-      "K.M.C.H.S",
-      "Banglow Town A & B",
-      "Shabbirabad",
-      "Mohammad Ali Society",
-      "Adamjee Nagar",
-      "Miran Mohammad Shah Road",
-      "K.D.A Scheme 1",
-    ],
-  },
-  {
-    name: "Zone C",
-    charge: 200,
-    areas: [
-      "P.I.B",
-      "Jamshed Road",
-      "Khudadad Colony",
-      "Muslimabad",
-      "Amil Colony",
-      "Gurumandir",
-      "S.M.C.H.S Block A & B",
-      "P.E.C.H.S Block 6",
-      "K.E.C.H.S",
-      "Falcon Complex",
-      "Darwesh Colony",
-      "Al Hilal Society",
-    ],
-  },
-  {
-    name: "Zone E",
-    charge: 250,
-    areas: [
-      "Lasbela",
-      "Garden East",
-      "Soldier Bazar",
-      "Parsi Colony",
-      "Numaish",
-      "Lines Area",
-      "Jutt Line",
-      "Abbesenia",
-      "Jackab Line",
-      "Jahangir Road",
-      "Patel Para",
-      "Purani Sabzi Mandi",
-      "Gulshan Block 14-17",
-      "K.D.A Officer Society",
-      "D.O.H.S",
-      "A.O.H.S",
-      "Bahria University",
-      "Liaquatabad Block 5-9",
-      "Lalo Khet Daak Khana",
-      "Teen Hatti",
-      "Mahmoodabad",
-      "Essa Nagri",
-    ],
-  },
-  {
-    name: "Zone F",
-    charge: 350,
-    areas: [
-      "Liaquatabad Block 1-4 & 10",
-      "Gulbahar Colony",
-      "Old Rizvia Society",
-      "Garden West",
-      "Jinnah Hospital",
-      "N.H.S",
-      "Gulshan-e-Jamal",
-      "Gulshan 18 & 19",
-      "Qayyumabad",
-      "Akhtar Colony",
-      "Manzoor Colony",
-      "DHA Phase 1 & 2",
-    ],
-  },
-  {
-    name: "Zone G",
-    charge: 400,
-    areas: [
-      "Nazimabad All Blocks",
-      "Paposh Nagar",
-      "Pak Colony",
-      "Gul Plaza",
-      "Jama Cloth",
-      "Saddar",
-      "Regal",
-      "Zainab Market",
-      "Lucky Star",
-      "DHA Phase 4",
-      "Cantt Station",
-      "Civil Line",
-      "Faisal Base",
-      "Askari 4",
-      "Gulistan-e-Johar Block 14-20",
-      "Gulshan Block 5-13",
-    ],
-  },
-  {
-    name: "Zone H",
-    charge: 450,
-    areas: [
-      "Gulistan-e-Johar 1-13",
-      "Gulshan Block 1,2,3",
-      "Federal B Area Block 1-10",
-      "North Nazimabad All Blocks",
-      "I.I. Chundrigar Road",
-      "DHA Phase 5 & 7",
-      "Clifton Block 7,8,9",
-    ],
-  },
-  {
-    name: "Zone I",
-    charge: 500,
-    areas: [
-      "Shadman Town",
-      "Buffer Zone",
-      "Federal B Area Block 11-22",
-      "Gulshan Block 4",
-      "Shah Faisal",
-      "DHA Phase 6",
-      "DHA Phase 8",
-      "Clifton Block 1-6",
-    ],
-  },
-];
-
-const ALL_AREAS = ZONES.flatMap((z) =>
-  z.areas.map((a) => ({ area: a, zone: z.name, charge: z.charge })),
-);
+// Maps a menu item's name to its existing static artwork. The public menu is
+// served from the database, and images are matched by name so database-driven
+// items keep their original photos (new items fall back to the hero image).
+const IMAGE_BY_NAME = new Map<string, string>(MENU.map((m) => [m.name, m.image]));
 
 type CartLine = { item: Item; size?: string; qty: number; key: string };
 type PaymentMethod = "cod" | "easypaisa" | "bank";
@@ -866,7 +725,7 @@ function Home() {
   const [search, setSearch] = useState("");
   const [areaQuery, setAreaQuery] = useState("");
   const [selectedArea, setSelectedArea] = useState<{
-    area: string;
+    label: string;
     zone: string;
     charge: number;
   } | null>(null);
@@ -876,6 +735,38 @@ function Home() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
   const [ordering, setOrdering] = useState(false);
+
+  // Serve the menu from the database so admin changes reflect publicly.
+  // Falls back to the built-in MENU while loading or if the DB is unreachable.
+  const liveMenuQuery = useQuery({
+    queryKey: ["public-menu"],
+    queryFn: () => getPublicMenu(),
+    staleTime: 60_000,
+  });
+
+  const menuItems: Item[] = useMemo(() => {
+    const live = liveMenuQuery.data;
+    if (!live || live.categories.length === 0) return MENU;
+    return live.categories.flatMap((cat) =>
+      cat.items.map((it) => ({
+        id: `db-${it.id}`,
+        name: it.name,
+        price: it.basePrice,
+        desc: it.description ?? "",
+        image: IMAGE_BY_NAME.get(it.name) ?? heroImg,
+        category: cat.name,
+        sizes: it.variants.length
+          ? it.variants.map((v) => ({ label: v.label, price: v.price }))
+          : undefined,
+      })),
+    );
+  }, [liveMenuQuery.data]);
+
+  const categories: string[] = useMemo(() => {
+    const live = liveMenuQuery.data;
+    if (!live || live.categories.length === 0) return CATEGORIES;
+    return ["All", ...live.categories.map((c) => c.name)];
+  }, [liveMenuQuery.data]);
 
   const {
     register,
@@ -906,25 +797,25 @@ function Home() {
           const sep = key.indexOf("|");
           const id = sep === -1 ? key : key.slice(0, sep);
           const size = sep === -1 ? undefined : key.slice(sep + 1);
-          return { key, item: MENU.find((m) => m.id === id)!, size, qty };
+          return { key, item: menuItems.find((m) => m.id === id)!, size, qty };
         })
         .filter((l) => l.item),
-    [cart],
+    [cart, menuItems],
   );
   const itemCount = lines.reduce((a, l) => a + l.qty, 0);
   const subtotal = lines.reduce((a, l) => a + lineUnitPrice(l.item, l.size) * l.qty, 0);
   const delivery = selectedArea?.charge ?? 0;
   const grand = subtotal + delivery;
 
-  const filtered = MENU.filter(
+  const filtered = menuItems.filter(
     (m) =>
       (category === "All" || m.category === category) &&
       (search === "" || m.name.toLowerCase().includes(search.toLowerCase())),
   );
 
-  const filteredAreas = areaQuery
-    ? ALL_AREAS.filter((a) => a.area.toLowerCase().includes(areaQuery.toLowerCase())).slice(0, 8)
-    : ALL_AREAS.slice(0, 8);
+  // Suggestions resolve typed blocks against their grouped range on the fly
+  // (e.g. "Clifton Block 4" -> "Clifton Block 4" · "Clifton Block 1-6" · Zone I).
+  const suggestions = suggestAreas(ALL_AREAS, areaQuery);
 
   const add = (key: string) => setCart((c) => ({ ...c, [key]: (c[key] || 0) + 1 }));
   const dec = (key: string) =>
@@ -968,7 +859,19 @@ function Home() {
       payment === "cod"
         ? ""
         : `\n_Please share the payment screenshot here on WhatsApp for verification._`;
-    const msg = `*Al-Arab Shawarma — New Order*\n\n*Customer:* ${data.name}\n*Phone:* ${data.phone}\n*Area:* ${selectedArea.area} (${selectedArea.zone})\n*Address:* ${data.address}\n${data.notes ? `*Notes:* ${data.notes}\n` : ""}\n*Items:*\n${itemsTxt}\n\n*Subtotal:* ${fmt(subtotal)}\n*Delivery:* ${fmt(delivery)}\n*Grand Total:* ${fmt(grand)}\n\n*Payment Method:* ${paymentLabel[payment]}${payNote}\n\nThank you!`;
+    const msg = buildOrderMessage({
+      customer: data.name,
+      phone: data.phone,
+      areaLabel: selectedArea.label,
+      address: data.address,
+      notes: data.notes,
+      items: itemsTxt,
+      subtotal,
+      delivery,
+      grand,
+      paymentLabel: paymentLabel[payment],
+      paymentNote: payNote,
+    });
     window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(msg)}`, "_blank");
     setOrdering(false);
     setConfirmOpen(true);
@@ -1056,41 +959,47 @@ function Home() {
       {/* HERO */}
       <section id="home" className="relative overflow-hidden">
         <div className="absolute inset-0">
-          <img src={heroImg} alt="Arabic shawarma" className="h-full w-full object-cover" />
+          <img
+            src={heroImg}
+            alt="Fresh Arabic shawarma served by Al-Arab Shawarma"
+            fetchPriority="high"
+            decoding="async"
+            className="h-full w-full object-cover"
+          />
           <div className="absolute inset-0 bg-gradient-hero" />
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_30%,oklch(0.05_0.02_145_/_0.75)_100%)]" />
         </div>
-        <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 min-h-[92vh] flex items-center">
-          <div className="max-w-2xl py-24 text-white">
-            <span className="inline-flex items-center gap-2 rounded-full border border-gold/40 bg-gold/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.2em] text-gold backdrop-blur-sm">
+        <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 min-h-[88svh] sm:min-h-[92vh] flex items-center">
+          <div className="max-w-2xl py-14 sm:py-20 lg:py-24 text-left text-white">
+            <span className="inline-flex items-center gap-2 rounded-full border border-gold/40 bg-gold/10 px-3.5 py-1.5 text-xs font-semibold uppercase tracking-[0.2em] text-gold backdrop-blur-sm">
               <Truck className="h-3.5 w-3.5" /> Delivery All Over Karachi
             </span>
-            <h1 className="mt-6 font-display text-5xl font-black leading-[1.05] sm:text-7xl lg:text-8xl">
+            <h1 className="mt-4 sm:mt-6 font-display text-4xl font-black leading-[1.05] sm:text-7xl lg:text-8xl">
               Al-Arab
               <span className="block text-gradient-gold">Shawarma</span>
             </h1>
-            <p className="mt-5 text-lg sm:text-xl text-white/85 max-w-xl">
+            <p className="mt-3 sm:mt-5 text-base sm:text-xl text-white/85 max-w-xl">
               Authentic Arabic Shawarma — Fresh & Delicious. Order now and get it hot at your door.
             </p>
-            <p className="mt-2 font-arabic text-2xl text-gold/90" dir="rtl">
+            <p className="mt-1.5 sm:mt-2 font-arabic text-xl sm:text-2xl text-gold/90" dir="rtl">
               ذوق العرب الأصيل
             </p>
 
             {/* Heritage Badge */}
-            <div className="mt-6 inline-flex items-center gap-3 rounded-2xl border border-gold/50 bg-gradient-to-r from-gold/20 via-gold/10 to-transparent px-5 py-3 backdrop-blur-sm shadow-gold-glow">
-              <Award className="h-7 w-7 text-gold" />
+            <div className="mt-4 sm:mt-6 inline-flex items-center gap-3 rounded-2xl border border-gold/50 bg-gradient-to-r from-gold/20 via-gold/10 to-transparent px-4 py-2.5 sm:px-5 sm:py-3 backdrop-blur-sm shadow-gold-glow">
+              <Award className="h-6 w-6 sm:h-7 sm:w-7 text-gold" />
               <div className="leading-tight">
                 <div className="text-[10px] uppercase tracking-[0.28em] text-gold/80 font-semibold">
                   A Legacy of Flavor
                 </div>
-                <div className="font-display text-base sm:text-lg font-black text-gradient-gold">
+                <div className="font-display text-sm sm:text-lg font-black text-gradient-gold">
                   Established in 1991 <span className="text-white/60 font-normal mx-1">|</span>{" "}
                   Registered in 1998
                 </div>
               </div>
             </div>
 
-            <div className="mt-6 flex flex-wrap gap-3 text-sm text-white/85">
+            <div className="mt-4 sm:mt-6 flex flex-wrap gap-3 text-xs sm:text-sm text-white/85">
               <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 backdrop-blur">
                 <ClockIcon className="h-3.5 w-3.5 text-gold" /> Open 4 PM – 4 AM
               </span>
@@ -1099,23 +1008,23 @@ function Home() {
               </span>
             </div>
 
-            <div className="mt-8 flex flex-wrap gap-4">
+            <div className="mt-6 sm:mt-8 flex flex-wrap gap-3 sm:gap-4">
               <a
                 href="#menu"
-                className="group inline-flex items-center gap-3 rounded-full bg-gold px-7 py-4 text-base font-bold text-gold-foreground shadow-gold-glow hover:scale-105 transition-transform"
+                className="group inline-flex items-center gap-3 rounded-full bg-gold px-6 py-3.5 text-sm font-bold text-gold-foreground shadow-gold-glow hover:scale-105 transition-transform sm:px-7 sm:py-4 sm:text-base"
               >
                 <UtensilsCrossed className="h-5 w-5" /> View Menu
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
               </a>
               <a
                 href="#checkout"
-                className="inline-flex items-center gap-3 rounded-full border-2 border-white/30 bg-white/10 px-7 py-4 text-base font-bold text-white backdrop-blur-sm hover:bg-white hover:text-brand transition-colors"
+                className="inline-flex items-center gap-3 rounded-full border-2 border-white/30 bg-white/10 px-6 py-3.5 text-sm font-bold text-white backdrop-blur-sm hover:bg-white hover:text-brand transition-colors sm:px-7 sm:py-4 sm:text-base"
               >
                 <ShoppingBag className="h-5 w-5" /> Order Now
               </a>
             </div>
 
-            <div className="mt-10 grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-xl">
+            <div className="mt-6 sm:mt-10 grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 max-w-xl">
               {[
                 { Icon: Leaf, t: "Fresh Ingredients" },
                 { Icon: BadgeCheck, t: "Halal Food" },
@@ -1136,7 +1045,7 @@ function Home() {
       </section>
 
       {/* ABOUT */}
-      <section id="about" className="py-24 bg-card">
+      <section id="about" className="py-16 lg:py-24 bg-card">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 grid lg:grid-cols-2 gap-12 items-center">
           <div className="relative rounded-3xl overflow-hidden shadow-card-soft aspect-[4/3]">
             <img
@@ -1156,16 +1065,16 @@ function Home() {
             <span className="text-xs uppercase tracking-[0.3em] text-brand font-bold">
               About Al-Arab
             </span>
-            <h2 className="mt-3 font-display text-4xl sm:text-5xl font-black text-foreground">
+            <h2 className="mt-3 font-display text-3xl sm:text-5xl font-black text-foreground">
               Authentic recipes, <span className="text-gradient-gold">premium quality</span>
             </h2>
-            <p className="mt-5 text-foreground/75 text-lg leading-relaxed">
+            <p className="mt-4 text-foreground/75 text-base sm:text-lg leading-relaxed">
               At Al-Arab Shawarma, we bring the streets of Arabia to Karachi. From marinated meats
               slow-roasted on a vertical spit to house-made sauces and fresh-baked bread — every
               bite is crafted by experienced chefs in a hygienic kitchen using only the freshest
               ingredients.
             </p>
-            <div className="mt-8 grid grid-cols-2 gap-4">
+            <div className="mt-6 sm:mt-8 grid grid-cols-2 gap-4">
               {[
                 { Icon: UtensilsCrossed, t: "Authentic Arabic Recipes" },
                 { Icon: Leaf, t: "Fresh Ingredients Daily" },
@@ -1179,7 +1088,7 @@ function Home() {
                   <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-gradient-brand text-brand-foreground">
                     <f.Icon className="h-5 w-5" />
                   </span>
-                  <span className="text-sm font-semibold">{f.t}</span>
+                  <span className="min-w-0 text-sm font-semibold leading-snug">{f.t}</span>
                 </div>
               ))}
             </div>
@@ -1188,13 +1097,13 @@ function Home() {
       </section>
 
       {/* MENU */}
-      <section id="menu" className="py-24 bg-background">
+      <section id="menu" className="py-16 lg:py-24 bg-background">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto">
             <span className="text-xs uppercase tracking-[0.3em] text-brand font-bold">
               Our Menu
             </span>
-            <h2 className="mt-3 font-display text-4xl sm:text-5xl font-black">
+            <h2 className="mt-3 font-display text-3xl sm:text-5xl font-black">
               Crafted with <span className="text-gradient-gold">Real Arabic</span> Soul
             </h2>
             <p className="mt-4 text-muted-foreground">
@@ -1202,9 +1111,9 @@ function Home() {
             </p>
           </div>
 
-          <div className="mt-10 flex flex-col sm:flex-row gap-4 items-stretch sm:items-center justify-between">
+          <div className="mt-6 sm:mt-10 flex flex-col sm:flex-row gap-4 items-stretch sm:items-center justify-between">
             <div className="flex flex-wrap gap-2">
-              {CATEGORIES.map((c) => (
+              {categories.map((c) => (
                 <button
                   key={c}
                   onClick={() => setCategory(c)}
@@ -1229,7 +1138,7 @@ function Home() {
             </div>
           </div>
 
-          <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-6 sm:mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {filtered.map((m) => (
               <MenuCard
                 key={m.id}
@@ -1244,11 +1153,11 @@ function Home() {
       </section>
 
       {/* DELIVERY */}
-      <section id="delivery" className="py-24 bg-ink text-cream">
+      <section id="delivery" className="py-16 lg:py-24 bg-ink text-cream">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto">
             <span className="text-xs uppercase tracking-[0.3em] text-gold font-bold">Delivery</span>
-            <h2 className="mt-3 font-display text-4xl sm:text-5xl font-black">
+            <h2 className="mt-3 font-display text-3xl sm:text-5xl font-black">
               Delivery <span className="text-gradient-gold">All Over Karachi</span>
             </h2>
             <p className="mt-4 text-cream/70">
@@ -1257,7 +1166,7 @@ function Home() {
             </p>
           </div>
 
-          <div className="mt-12 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-8 sm:mt-12 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             {ZONES.map((z) => (
               <div
                 key={z.name}
@@ -1279,18 +1188,18 @@ function Home() {
       </section>
 
       {/* CHECKOUT */}
-      <section id="checkout" className="py-24 bg-card">
+      <section id="checkout" className="py-16 lg:py-24 bg-card">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto">
             <span className="text-xs uppercase tracking-[0.3em] text-brand font-bold">
               Checkout
             </span>
-            <h2 className="mt-3 font-display text-4xl sm:text-5xl font-black text-foreground">
+            <h2 className="mt-3 font-display text-3xl sm:text-5xl font-black text-foreground">
               Complete Your <span className="text-gradient-gold">Order</span>
             </h2>
           </div>
 
-          <div className="mt-12 grid gap-8 lg:grid-cols-5">
+          <div className="mt-8 sm:mt-12 grid gap-8 lg:grid-cols-5">
             <div className="lg:col-span-3 space-y-8">
               <div className="rounded-3xl bg-card p-6 sm:p-8 shadow-card-soft border border-border">
                 <h3 className="font-display text-2xl font-bold">Delivery Details</h3>
@@ -1318,40 +1227,45 @@ function Home() {
                   <div className="sm:col-span-2 relative">
                     <Field label="Delivery Area" icon="fa-location-dot">
                       <input
-                        value={
-                          selectedArea
-                            ? `${selectedArea.area} — ${selectedArea.zone} (${fmt(selectedArea.charge)})`
-                            : areaQuery
-                        }
+                        value={areaQuery}
                         onChange={(e) => {
-                          setAreaQuery(e.target.value);
-                          setSelectedArea(null);
-                          setAreaOpen(true);
+                          const q = e.target.value;
+                          setAreaQuery(q);
+                          setSelectedArea(resolveArea(ALL_AREAS, q));
+                          setAreaOpen(q.trim() !== "");
                         }}
                         onFocus={() => setAreaOpen(true)}
+                        onBlur={() => setAreaOpen(false)}
                         className="field"
                         placeholder="Search your area…"
                       />
                     </Field>
                     {areaOpen && (
                       <div className="absolute z-10 left-0 right-0 mt-1 max-h-72 overflow-auto rounded-2xl bg-card border border-border shadow-card-soft">
-                        {filteredAreas.length === 0 ? (
+                        {suggestions.length === 0 ? (
                           <div className="p-4 text-sm text-muted-foreground">
                             No matching area. We may not deliver here.
                           </div>
                         ) : (
-                          filteredAreas.map((a) => (
+                          suggestions.map((a) => (
                             <button
                               key={a.area}
+                              type="button"
+                              onMouseDown={(e) => e.preventDefault()}
                               onClick={() => {
-                                setSelectedArea(a);
-                                setAreaQuery("");
+                                setSelectedArea({
+                                  label: a.label,
+                                  zone: a.zone,
+                                  charge: a.charge,
+                                });
+                                setAreaQuery(a.label);
                                 setAreaOpen(false);
                               }}
-                              className="w-full text-left px-4 py-3 hover:bg-muted flex items-center justify-between"
+                              className="w-full text-left px-4 py-3 hover:bg-muted flex items-center justify-between gap-3"
                             >
-                              <span className="text-sm font-medium">{a.area}</span>
-                              <span className="text-xs text-muted-foreground">
+                              <span className="text-sm font-medium">{a.label}</span>
+                              <span className="text-xs text-muted-foreground text-right shrink-0">
+                                {a.label !== a.area ? `${a.area} · ` : ""}
                                 {a.zone} · {fmt(a.charge)}
                               </span>
                             </button>
@@ -1566,17 +1480,17 @@ function Home() {
       </section>
 
       {/* WHY US */}
-      <section className="py-24 bg-background">
+      <section className="py-16 lg:py-24 bg-background">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto">
             <span className="text-xs uppercase tracking-[0.3em] text-brand font-bold">
               Why Choose Us
             </span>
-            <h2 className="mt-3 font-display text-4xl sm:text-5xl font-black">
+            <h2 className="mt-3 font-display text-3xl sm:text-5xl font-black">
               Karachi's <span className="text-gradient-gold">Favorite</span> Shawarma
             </h2>
           </div>
-          <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-8 sm:mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {[
               {
                 Icon: Star,
@@ -1600,7 +1514,7 @@ function Home() {
                 <span className="grid h-12 w-12 place-items-center rounded-xl bg-gradient-brand text-brand-foreground shadow-brand">
                   <f.Icon className="h-5 w-5" />
                 </span>
-                <h3 className="mt-4 font-display text-xl font-bold">{f.t}</h3>
+                <h3 className="mt-4 font-display text-lg font-bold sm:text-xl">{f.t}</h3>
                 <p className="mt-2 text-sm text-muted-foreground">{f.d}</p>
               </div>
             ))}
@@ -1609,17 +1523,17 @@ function Home() {
       </section>
 
       {/* LOCATION */}
-      <section id="location" className="py-24 bg-card">
+      <section id="location" className="py-16 lg:py-24 bg-card">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto">
             <span className="text-xs uppercase tracking-[0.3em] text-brand font-bold">
               Visit Us
             </span>
-            <h2 className="mt-3 font-display text-4xl sm:text-5xl font-black text-foreground">
+            <h2 className="mt-3 font-display text-3xl sm:text-5xl font-black text-foreground">
               Find Al-Arab in <span className="text-gradient-gold">Karachi</span>
             </h2>
           </div>
-          <div className="mt-14 grid lg:grid-cols-5 gap-8">
+          <div className="mt-8 sm:mt-14 grid lg:grid-cols-5 gap-8">
             <div className="lg:col-span-2 space-y-4">
               {[
                 { Icon: MapPin, t: "Our Address", v: "Main Sharfabad Signal, Karachi, Pakistan" },
@@ -1664,15 +1578,15 @@ function Home() {
       </section>
 
       {/* CONTACT */}
-      <section id="contact" className="py-24 bg-ink text-cream">
+      <section id="contact" className="py-16 lg:py-24 bg-ink text-cream">
         <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
           <div className="text-center">
             <span className="text-xs uppercase tracking-[0.3em] text-gold font-bold">Contact</span>
-            <h2 className="mt-3 font-display text-4xl sm:text-5xl font-black">
+            <h2 className="mt-3 font-display text-3xl sm:text-5xl font-black">
               Get in <span className="text-gradient-gold">Touch</span>
             </h2>
           </div>
-          <div className="mt-12 grid lg:grid-cols-2 gap-8">
+          <div className="mt-8 sm:mt-12 grid lg:grid-cols-2 gap-8">
             <div className="space-y-4">
               <ContactRow Icon={Phone} t="Phone" v="0333-3686848" />
               <ContactRow Icon={MapPin} t="Address" v="Main Sharfabad Signal, Karachi" />
@@ -1728,7 +1642,7 @@ function Home() {
       </section>
 
       {/* FOOTER */}
-      <footer className="bg-background border-t border-border pt-16 pb-8">
+      <footer className="bg-background border-t border-border pt-12 lg:pt-16 pb-8">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 grid gap-10 md:grid-cols-4">
           <div className="md:col-span-2">
             <div className="flex items-center gap-3">
@@ -1803,9 +1717,22 @@ function Home() {
             </div>
           </div>
         </div>
-        <div className="mt-12 border-t border-border pt-6 text-center text-xs text-muted-foreground">
-          © {new Date().getFullYear()} Al-Arab Shawarma. All rights reserved. · Made with{" "}
-          <Heart className="h-3 w-3 inline text-brand mx-0.5" /> in Karachi
+        <div className="mt-8 lg:mt-12 border-t border-border pt-6 text-center text-xs text-muted-foreground space-y-1.5">
+          <div>© {new Date().getFullYear()} Al-Arab Shawarma. All rights reserved.</div>
+          <div className="flex flex-wrap items-center justify-center gap-x-1.5 gap-y-1 px-4">
+            <span>Developed with ❤️ by</span>
+            <span className="font-semibold text-foreground/80">Mahar Ahmad Sarfraz</span>
+            <span className="hidden sm:inline" aria-hidden="true">
+              ·
+            </span>
+            <span>Contact:</span>
+            <a
+              href="tel:03121281814"
+              className="font-semibold text-foreground/80 hover:text-brand transition-colors"
+            >
+              0312-1281814
+            </a>
+          </div>
         </div>
       </footer>
 
@@ -1948,7 +1875,7 @@ function MenuCard({
   const qty = getQty(key);
 
   return (
-    <article className="group rounded-3xl bg-card border border-border shadow-card-soft overflow-hidden hover:shadow-brand hover:-translate-y-1 transition-all">
+    <article className="group flex flex-col rounded-3xl bg-card border border-border shadow-card-soft overflow-hidden hover:shadow-brand hover:-translate-y-1 transition-all">
       <div className="relative h-48 overflow-hidden bg-muted/50">
         <img
           src={item.image}
@@ -1963,8 +1890,8 @@ function MenuCard({
           {item.sizes ? `From ${fmt(item.sizes[0].price)}` : fmt(item.price)}
         </span>
       </div>
-      <div className="p-5">
-        <h3 className="font-display text-xl font-bold">{item.name}</h3>
+      <div className="flex flex-1 flex-col p-5">
+        <h3 className="font-display text-lg font-bold sm:text-xl">{item.name}</h3>
         <p className="mt-1.5 text-sm text-muted-foreground line-clamp-2">{item.desc}</p>
         {item.sizes && (
           <div className="mt-3 flex flex-wrap gap-2">
@@ -1983,7 +1910,7 @@ function MenuCard({
             ))}
           </div>
         )}
-        <div className="mt-4 flex items-center justify-between gap-3">
+        <div className="mt-auto flex items-center justify-between gap-3 pt-4">
           {qty > 0 ? (
             <QtyControl qty={qty} onAdd={() => onAdd(key)} onDec={() => onDec(key)} />
           ) : (
@@ -1991,7 +1918,7 @@ function MenuCard({
           )}
           <button
             onClick={() => onAdd(key)}
-            className="inline-flex items-center gap-2 rounded-full bg-gradient-brand text-brand-foreground px-4 py-2.5 text-sm font-bold shadow-brand hover:scale-105 transition-transform"
+            className="inline-flex items-center gap-2 rounded-full bg-gradient-brand text-brand-foreground px-4 py-3 text-sm font-bold shadow-brand hover:scale-105 transition-transform"
           >
             <Plus className="h-4 w-4" /> Add
           </button>

@@ -1,0 +1,462 @@
+// -----------------------------------------------------------------------------
+// Al-Arab Shawarma — Prisma Schema (Phase 1)
+//
+// Matches the approved "Database Architecture v2" document 1:1.
+// Single-restaurant architecture: NO tenant / restaurant_id columns anywhere.
+//
+// Implementation notes:
+//   - All timestamps are timestamptz (UTC).
+//   - All money is numeric(10,2). Never floats.
+//   - Content catalog tables share the ContentStatus enum
+//     (ACTIVE / HIDDEN / ARCHIVED).
+//   - Singleton tables use `id Int @default(1)`; a CHECK (id = 1) constraint
+//     is added in the migration SQL to enforce a single row.
+//   - opening_hours.open_time / close_time map to PostgreSQL TIME via
+//     `@db.Time`; the date portion of the DateTime is ignored.
+//   - CHECK constraints Prisma cannot express (singleton, enum sets, money
+//     >= 0, day range) are added manually to the generated migration SQL.
+//   - admin_dashboard_stats is a read-only SQL VIEW created in the migration
+//     (Prisma does not model views).
+// -----------------------------------------------------------------------------
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum ContentStatus {
+  ACTIVE
+  HIDDEN
+  ARCHIVED
+}
+
+// ---------------------------------------------------------------------------
+// Admin User (single Owner — no roles)
+// ---------------------------------------------------------------------------
+
+model User {
+  id            String        @id @default(uuid()) @db.Uuid
+  name          String
+  email         String        @unique
+  passwordHash  String        @map("password_hash")
+  isActive      Boolean       @default(true) @map("is_active")
+  lastLoginAt   DateTime?     @map("last_login_at") @db.Timestamptz
+  emailVerified Boolean       @default(false) @map("email_verified")
+  image         String?
+  createdAt     DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime      @updatedAt @map("updated_at") @db.Timestamptz
+  activityLogs  ActivityLog[]
+  accounts      Account[]
+  sessions      Session[]
+
+  @@map("users")
+}
+
+// ---------------------------------------------------------------------------
+// Auth (Better Auth) — sessions, credential accounts, verification tokens.
+// IDs are TEXT: Better Auth generates its own non-UUID alphanumeric IDs.
+// userId is a UUID FK to the existing User.id (owner record, preserved as-is).
+// ---------------------------------------------------------------------------
+
+model Account {
+  id                    String    @id
+  userId                String    @map("user_id") @db.Uuid
+  accountId             String    @map("account_id")
+  providerId            String    @map("provider_id")
+  password              String?
+  accessToken           String?   @map("access_token")
+  refreshToken          String?   @map("refresh_token")
+  idToken               String?   @map("id_token")
+  accessTokenExpiresAt  DateTime? @map("access_token_expires_at") @db.Timestamptz
+  refreshTokenExpiresAt DateTime? @map("refresh_token_expires_at") @db.Timestamptz
+  scope                 String?
+  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt             DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([providerId, accountId])
+  @@index([userId])
+  @@map("accounts")
+}
+
+model Session {
+  id        String   @id
+  token     String   @unique
+  userId    String   @map("user_id") @db.Uuid
+  expiresAt DateTime @map("expires_at") @db.Timestamptz
+  ipAddress String?  @map("ip_address")
+  userAgent String?  @map("user_agent")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime @map("expires_at") @db.Timestamptz
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([identifier])
+  @@map("verifications")
+}
+
+// ---------------------------------------------------------------------------
+// Menu
+// ---------------------------------------------------------------------------
+
+model Category {
+  id           String        @id @default(uuid()) @db.Uuid
+  name         String
+  slug         String        @unique
+  status       ContentStatus @default(ACTIVE)
+  displayOrder Int           @default(0) @map("display_order")
+  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime      @updatedAt @map("updated_at") @db.Timestamptz
+  menuItems    MenuItem[]
+
+  @@index([status, displayOrder])
+  @@map("categories")
+}
+
+model MenuItem {
+  id           String           @id @default(uuid()) @db.Uuid
+  categoryId   String           @map("category_id") @db.Uuid
+  name         String
+  slug         String           @unique
+  description  String?
+  basePrice    Decimal          @map("base_price") @db.Decimal(10, 2)
+  imageId      String?          @map("image_id") @db.Uuid
+  status       ContentStatus    @default(ACTIVE)
+  featured     Boolean          @default(false)
+  displayOrder Int              @default(0) @map("display_order")
+  createdAt    DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime         @updatedAt @map("updated_at") @db.Timestamptz
+  category     Category         @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  image        Media?           @relation("MenuItemImage", fields: [imageId], references: [id], onDelete: Restrict)
+  variants     MenuItemVariant[]
+
+  @@index([categoryId, status, displayOrder])
+  @@index([status])
+  @@index([featured])
+  @@map("menu_items")
+}
+
+model MenuItemVariant {
+  id           String   @id @default(uuid()) @db.Uuid
+  menuItemId   String   @map("menu_item_id") @db.Uuid
+  label        String
+  price        Decimal  @db.Decimal(10, 2)
+  displayOrder Int      @default(0) @map("display_order")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+  menuItem     MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+
+  @@unique([menuItemId, label])
+  @@index([menuItemId, displayOrder])
+  @@map("menu_item_variants")
+}
+
+// ---------------------------------------------------------------------------
+// Hero Section (singleton)
+// ---------------------------------------------------------------------------
+
+model HeroSection {
+  id                Int             @id @default(1)
+  status            ContentStatus   @default(ACTIVE)
+  badgeText         String?         @map("badge_text")
+  headline          String
+  headlineHighlight String?         @map("headline_highlight")
+  subheadline       String?
+  arabicTagline     String?         @map("arabic_tagline")
+  badgeTitle        String?         @map("badge_title")
+  badgeSubtitle     String?         @map("badge_subtitle")
+  ctaPrimaryText    String?         @map("cta_primary_text")
+  ctaPrimaryHref    String?         @map("cta_primary_href")
+  ctaSecondaryText  String?         @map("cta_secondary_text")
+  ctaSecondaryHref  String?         @map("cta_secondary_href")
+  backgroundImageId String?         @map("background_image_id") @db.Uuid
+  updatedAt         DateTime        @updatedAt @map("updated_at") @db.Timestamptz
+  backgroundImage   Media?          @relation("HeroBackgroundImage", fields: [backgroundImageId], references: [id], onDelete: Restrict)
+  features          HeroFeature[]
+
+  @@map("hero_section")
+}
+
+model HeroFeature {
+  id           String        @id @default(uuid()) @db.Uuid
+  heroId       Int           @map("hero_id")
+  iconKey      String        @map("icon_key")
+  label        String
+  status       ContentStatus @default(ACTIVE)
+  displayOrder Int           @default(0) @map("display_order")
+  hero         HeroSection   @relation(fields: [heroId], references: [id], onDelete: Cascade)
+
+  @@index([heroId, displayOrder])
+  @@map("hero_features")
+}
+
+// ---------------------------------------------------------------------------
+// About Section (singleton) + Why Us
+// ---------------------------------------------------------------------------
+
+model AboutSection {
+  id                    Int             @id @default(1)
+  status                ContentStatus   @default(ACTIVE)
+  badgeLabel            String?         @map("badge_label")
+  heading               String
+  headingHighlight      String?         @map("heading_highlight")
+  body                  String
+  imageId               String?         @map("image_id") @db.Uuid
+  imageOverlayTitle     String?         @map("image_overlay_title")
+  imageOverlayText      String?         @map("image_overlay_text")
+  whyUsHeading          String?         @map("why_us_heading")
+  whyUsHeadingHighlight String?         @map("why_us_heading_highlight")
+  updatedAt             DateTime        @updatedAt @map("updated_at") @db.Timestamptz
+  image                 Media?          @relation("AboutImage", fields: [imageId], references: [id], onDelete: Restrict)
+  features              AboutFeature[]
+  whyUsFeatures         WhyUsFeature[]
+
+  @@map("about_section")
+}
+
+model AboutFeature {
+  id           String        @id @default(uuid()) @db.Uuid
+  aboutId      Int           @map("about_id")
+  iconKey      String        @map("icon_key")
+  label        String
+  status       ContentStatus @default(ACTIVE)
+  displayOrder Int           @default(0) @map("display_order")
+  about        AboutSection  @relation(fields: [aboutId], references: [id], onDelete: Cascade)
+
+  @@index([aboutId, displayOrder])
+  @@map("about_features")
+}
+
+model WhyUsFeature {
+  id           String        @id @default(uuid()) @db.Uuid
+  aboutId      Int           @map("about_id")
+  iconKey      String        @map("icon_key")
+  label        String
+  description  String
+  status       ContentStatus @default(ACTIVE)
+  displayOrder Int           @default(0) @map("display_order")
+  about        AboutSection  @relation(fields: [aboutId], references: [id], onDelete: Cascade)
+
+  @@index([aboutId, displayOrder])
+  @@map("why_us_features")
+}
+
+// ---------------------------------------------------------------------------
+// Contact Information (singleton)
+// ---------------------------------------------------------------------------
+
+model ContactInfo {
+  id                Int      @id @default(1)
+  restaurantName    String   @map("restaurant_name")
+  tagline           String?
+  phoneDisplay      String   @map("phone_display")
+  phoneTel          String   @map("phone_tel")
+  whatsappNumber    String   @map("whatsapp_number")
+  address           String
+  email             String?
+  mapsEmbedUrl      String?  @map("maps_embed_url")
+  mapsDirectionsUrl String?  @map("maps_directions_url")
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("contact_info")
+}
+
+// ---------------------------------------------------------------------------
+// Opening Hours
+// ---------------------------------------------------------------------------
+
+model OpeningHours {
+  id        Int      @id @default(autoincrement())
+  dayOfWeek Int      @map("day_of_week")
+  type      String
+  openTime  DateTime @map("open_time") @db.Time(0)
+  closeTime DateTime @map("close_time") @db.Time(0)
+  isClosed  Boolean  @default(false) @map("is_closed")
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([dayOfWeek, type])
+  @@map("opening_hours")
+}
+
+// ---------------------------------------------------------------------------
+// Social Links
+// ---------------------------------------------------------------------------
+
+model SocialLink {
+  id           String        @id @default(uuid()) @db.Uuid
+  platform     String        @unique
+  url          String
+  iconKey      String        @map("icon_key")
+  status       ContentStatus @default(ACTIVE)
+  displayOrder Int           @default(0) @map("display_order")
+  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime      @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([status, displayOrder])
+  @@map("social_links")
+}
+
+// ---------------------------------------------------------------------------
+// SEO Settings (singleton)
+// ---------------------------------------------------------------------------
+
+model SeoSettings {
+  id            Int      @id @default(1)
+  title         String
+  description   String
+  keywords      String?
+  robotsIndex   Boolean  @default(true) @map("robots_index")
+  robotsFollow  Boolean  @default(true) @map("robots_follow")
+  ogTitle       String?  @map("og_title")
+  ogDescription String?  @map("og_description")
+  twitterCard   String?  @map("twitter_card")
+  ogImageId     String?  @map("og_image_id") @db.Uuid
+  canonicalUrl  String?  @map("canonical_url")
+  jsonLd        Json?    @map("json_ld")
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  ogImage       Media?   @relation("OgImage", fields: [ogImageId], references: [id], onDelete: Restrict)
+
+  @@map("seo_settings")
+}
+
+// ---------------------------------------------------------------------------
+// Theme Settings (singleton)
+// ---------------------------------------------------------------------------
+
+model ThemeSettings {
+  id              Int      @id @default(1)
+  primaryColor    String   @map("primary_color")
+  secondaryColor  String   @map("secondary_color")
+  accentColor     String   @map("accent_color")
+  backgroundColor String   @map("background_color")
+  textColor       String   @map("text_color")
+  logoId          String?  @map("logo_id") @db.Uuid
+  faviconId       String?  @map("favicon_id") @db.Uuid
+  isActive        Boolean  @default(true) @map("is_active")
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  logo            Media?   @relation("ThemeLogo", fields: [logoId], references: [id], onDelete: Restrict)
+  favicon         Media?   @relation("ThemeFavicon", fields: [faviconId], references: [id], onDelete: Restrict)
+
+  @@map("theme_settings")
+}
+
+// ---------------------------------------------------------------------------
+// Media Library
+// ---------------------------------------------------------------------------
+
+model Media {
+  id               String            @id @default(uuid()) @db.Uuid
+  originalFilename String            @map("original_filename")
+  storagePath      String            @unique @map("storage_path")
+  url              String
+  altText          String?           @map("alt_text")
+  contentType      String            @map("content_type")
+  sizeBytes        BigInt            @default(0) @map("size_bytes")
+  width            Int?
+  height           Int?
+  status           ContentStatus     @default(ACTIVE)
+  displayOrder     Int               @default(0) @map("display_order")
+  createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz
+
+  menuItemImages   MenuItem[]        @relation("MenuItemImage")
+  heroBackgrounds  HeroSection[]     @relation("HeroBackgroundImage")
+  aboutImages      AboutSection[]    @relation("AboutImage")
+  ogImages         SeoSettings[]     @relation("OgImage")
+  themeLogos       ThemeSettings[]   @relation("ThemeLogo")
+  themeFavicons    ThemeSettings[]   @relation("ThemeFavicon")
+  paymentQrImages  PaymentSettings[] @relation("PaymentQrImage")
+
+  @@index([contentType])
+  @@index([status, displayOrder])
+  @@index([createdAt(sort: Desc)])
+  @@map("media")
+}
+
+// ---------------------------------------------------------------------------
+// Activity Logs (append-only / immutable)
+// ---------------------------------------------------------------------------
+
+model ActivityLog {
+  id         BigInt   @id @default(autoincrement())
+  userId     String?  @map("user_id") @db.Uuid
+  action     String
+  entityType String   @map("entity_type")
+  entityId   String   @map("entity_id")
+  details    Json?
+  ipAddress  String?  @map("ip_address")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([entityType, entityId, createdAt(sort: Desc)])
+  @@index([createdAt(sort: Desc)])
+  @@map("activity_logs")
+}
+
+// ---------------------------------------------------------------------------
+// Delivery Zones & Areas
+// ---------------------------------------------------------------------------
+
+model DeliveryZone {
+  id             String          @id @default(uuid()) @db.Uuid
+  name           String          @unique
+  deliveryCharge Decimal         @map("delivery_charge") @db.Decimal(10, 2)
+  status         ContentStatus   @default(ACTIVE)
+  displayOrder   Int             @default(0) @map("display_order")
+  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime        @updatedAt @map("updated_at") @db.Timestamptz
+  areas          DeliveryArea[]
+
+  @@index([status, displayOrder])
+  @@map("delivery_zones")
+}
+
+model DeliveryArea {
+  id        String        @id @default(uuid()) @db.Uuid
+  zoneId    String        @map("zone_id") @db.Uuid
+  name      String
+  status    ContentStatus @default(ACTIVE)
+  createdAt DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  zone      DeliveryZone  @relation(fields: [zoneId], references: [id], onDelete: Cascade)
+
+  @@unique([zoneId, name])
+  @@index([zoneId, status, name])
+  @@map("delivery_areas")
+}
+
+// ---------------------------------------------------------------------------
+// Payment Settings (singleton)
+// ---------------------------------------------------------------------------
+
+model PaymentSettings {
+  id              Int      @id @default(1)
+  easypaisaNumber String   @map("easypaisa_number")
+  easypaisaTitle  String   @map("easypaisa_title")
+  bankName        String   @map("bank_name")
+  bankTitle       String   @map("bank_title")
+  bankIban        String   @map("bank_iban")
+  bankQrImageId   String?  @map("bank_qr_image_id") @db.Uuid
+  paymentNote     String?  @map("payment_note")
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  bankQrImage     Media?   @relation("PaymentQrImage", fields: [bankQrImageId], references: [id], onDelete: Restrict)
+
+  @@map("payment_settings")
+}

@@ -19,8 +19,14 @@ import process from "node:process";
 export function getServerConfig() {
   return {
     nodeEnv: process.env.NODE_ENV,
-    // Add server-only values here, e.g.:
-    //   databaseUrl: process.env.DATABASE_URL,
-    //   stripeSecretKey: process.env.STRIPE_SECRET_KEY,
+    databaseUrl: process.env.DATABASE_URL,
   };
+}
+
+export function requireDatabaseUrl(): string {
+  const url = process.env.DATABASE_URL;
+  if (!url || url.trim() === "") {
+    throw new Error("DATABASE_URL is not set");
+  }
+  return url;
 }
