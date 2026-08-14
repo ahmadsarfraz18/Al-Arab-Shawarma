@@ -6,7 +6,9 @@ import {
   History,
   LayoutDashboard,
   LayoutGrid,
+  LayoutTemplate,
   ListChecks,
+  Settings,
   ShieldCheck,
   Sparkles,
   Star,
@@ -41,6 +43,8 @@ const ACTION_LABELS: Record<string, string> = {
 const ENTITY_LABELS: Record<string, string> = {
   menu_item: "menu item",
   category: "category",
+  contact_settings: "contact settings",
+  payment_settings: "payment settings",
 };
 
 function activityLabel(action: string): string {
@@ -196,6 +200,38 @@ function AdminDashboard() {
                     <div className="font-semibold">Manage categories</div>
                     <div className="text-xs text-muted-foreground">
                       Reorganize how the menu is grouped
+                    </div>
+                  </div>
+                </div>
+                <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-brand" />
+              </div>
+            </Link>
+            <Link to="/admin/homepage" className="block">
+              <div className="group flex items-center justify-between gap-3 rounded-xl border border-border bg-muted/30 px-4 py-3 transition-colors hover:border-brand/40">
+                <div className="flex items-center gap-3">
+                  <span className="grid h-10 w-10 place-items-center rounded-lg bg-gradient-brand text-brand-foreground">
+                    <LayoutTemplate className="h-5 w-5" />
+                  </span>
+                  <div>
+                    <div className="font-semibold">Edit homepage</div>
+                    <div className="text-xs text-muted-foreground">
+                      Hero, about and why-us content
+                    </div>
+                  </div>
+                </div>
+                <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-brand" />
+              </div>
+            </Link>
+            <Link to="/admin/settings" className="block">
+              <div className="group flex items-center justify-between gap-3 rounded-xl border border-border bg-muted/30 px-4 py-3 transition-colors hover:border-brand/40">
+                <div className="flex items-center gap-3">
+                  <span className="grid h-10 w-10 place-items-center rounded-lg bg-gradient-brand text-brand-foreground">
+                    <Settings className="h-5 w-5" />
+                  </span>
+                  <div>
+                    <div className="font-semibold">Site settings</div>
+                    <div className="text-xs text-muted-foreground">
+                      Edit contact info and payment details
                     </div>
                   </div>
                 </div>

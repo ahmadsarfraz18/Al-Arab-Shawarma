@@ -13,8 +13,10 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminLayoutRouteRouteImport } from './routes/admin/_layout/route'
 import { Route as AdminLayoutIndexRouteImport } from './routes/admin/_layout/index'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as AdminLayoutSettingsRouteImport } from './routes/admin/_layout/settings'
 import { Route as AdminLayoutMenuRouteImport } from './routes/admin/_layout/menu'
 import { Route as AdminLayoutLoginRouteImport } from './routes/admin/_layout/login'
+import { Route as AdminLayoutHomepageRouteImport } from './routes/admin/_layout/homepage'
 import { Route as AdminLayoutCategoriesRouteImport } from './routes/admin/_layout/categories'
 
 const IndexRoute = IndexRouteImport.update({
@@ -37,6 +39,11 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminLayoutSettingsRoute = AdminLayoutSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AdminLayoutRouteRoute,
+} as any)
 const AdminLayoutMenuRoute = AdminLayoutMenuRouteImport.update({
   id: '/menu',
   path: '/menu',
@@ -45,6 +52,11 @@ const AdminLayoutMenuRoute = AdminLayoutMenuRouteImport.update({
 const AdminLayoutLoginRoute = AdminLayoutLoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => AdminLayoutRouteRoute,
+} as any)
+const AdminLayoutHomepageRoute = AdminLayoutHomepageRouteImport.update({
+  id: '/homepage',
+  path: '/homepage',
   getParentRoute: () => AdminLayoutRouteRoute,
 } as any)
 const AdminLayoutCategoriesRoute = AdminLayoutCategoriesRouteImport.update({
@@ -57,16 +69,20 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminLayoutRouteRouteWithChildren
   '/admin/categories': typeof AdminLayoutCategoriesRoute
+  '/admin/homepage': typeof AdminLayoutHomepageRoute
   '/admin/login': typeof AdminLayoutLoginRoute
   '/admin/menu': typeof AdminLayoutMenuRoute
+  '/admin/settings': typeof AdminLayoutSettingsRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/admin/': typeof AdminLayoutIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin/categories': typeof AdminLayoutCategoriesRoute
+  '/admin/homepage': typeof AdminLayoutHomepageRoute
   '/admin/login': typeof AdminLayoutLoginRoute
   '/admin/menu': typeof AdminLayoutMenuRoute
+  '/admin/settings': typeof AdminLayoutSettingsRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/admin': typeof AdminLayoutIndexRoute
 }
@@ -75,8 +91,10 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/admin/_layout': typeof AdminLayoutRouteRouteWithChildren
   '/admin/_layout/categories': typeof AdminLayoutCategoriesRoute
+  '/admin/_layout/homepage': typeof AdminLayoutHomepageRoute
   '/admin/_layout/login': typeof AdminLayoutLoginRoute
   '/admin/_layout/menu': typeof AdminLayoutMenuRoute
+  '/admin/_layout/settings': typeof AdminLayoutSettingsRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/admin/_layout/': typeof AdminLayoutIndexRoute
 }
@@ -86,16 +104,20 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/admin/categories'
+    | '/admin/homepage'
     | '/admin/login'
     | '/admin/menu'
+    | '/admin/settings'
     | '/api/auth/$'
     | '/admin/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/admin/categories'
+    | '/admin/homepage'
     | '/admin/login'
     | '/admin/menu'
+    | '/admin/settings'
     | '/api/auth/$'
     | '/admin'
   id:
@@ -103,8 +125,10 @@ export interface FileRouteTypes {
     | '/'
     | '/admin/_layout'
     | '/admin/_layout/categories'
+    | '/admin/_layout/homepage'
     | '/admin/_layout/login'
     | '/admin/_layout/menu'
+    | '/admin/_layout/settings'
     | '/api/auth/$'
     | '/admin/_layout/'
   fileRoutesById: FileRoutesById
@@ -145,6 +169,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/_layout/settings': {
+      id: '/admin/_layout/settings'
+      path: '/settings'
+      fullPath: '/admin/settings'
+      preLoaderRoute: typeof AdminLayoutSettingsRouteImport
+      parentRoute: typeof AdminLayoutRouteRoute
+    }
     '/admin/_layout/menu': {
       id: '/admin/_layout/menu'
       path: '/menu'
@@ -159,6 +190,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminLayoutLoginRouteImport
       parentRoute: typeof AdminLayoutRouteRoute
     }
+    '/admin/_layout/homepage': {
+      id: '/admin/_layout/homepage'
+      path: '/homepage'
+      fullPath: '/admin/homepage'
+      preLoaderRoute: typeof AdminLayoutHomepageRouteImport
+      parentRoute: typeof AdminLayoutRouteRoute
+    }
     '/admin/_layout/categories': {
       id: '/admin/_layout/categories'
       path: '/categories'
@@ -171,15 +209,19 @@ declare module '@tanstack/react-router' {
 
 interface AdminLayoutRouteRouteChildren {
   AdminLayoutCategoriesRoute: typeof AdminLayoutCategoriesRoute
+  AdminLayoutHomepageRoute: typeof AdminLayoutHomepageRoute
   AdminLayoutLoginRoute: typeof AdminLayoutLoginRoute
   AdminLayoutMenuRoute: typeof AdminLayoutMenuRoute
+  AdminLayoutSettingsRoute: typeof AdminLayoutSettingsRoute
   AdminLayoutIndexRoute: typeof AdminLayoutIndexRoute
 }
 
 const AdminLayoutRouteRouteChildren: AdminLayoutRouteRouteChildren = {
   AdminLayoutCategoriesRoute: AdminLayoutCategoriesRoute,
+  AdminLayoutHomepageRoute: AdminLayoutHomepageRoute,
   AdminLayoutLoginRoute: AdminLayoutLoginRoute,
   AdminLayoutMenuRoute: AdminLayoutMenuRoute,
+  AdminLayoutSettingsRoute: AdminLayoutSettingsRoute,
   AdminLayoutIndexRoute: AdminLayoutIndexRoute,
 }
 

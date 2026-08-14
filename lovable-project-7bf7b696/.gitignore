@@ -27,6 +27,11 @@ dist-ssr
 .wrangler/
 .dev.vars
 
+# opencode local tooling (keep only .opencode/agent/*.md)
+.opencode/package.json
+.opencode/package-lock.json
+.opencode/.gitignore
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

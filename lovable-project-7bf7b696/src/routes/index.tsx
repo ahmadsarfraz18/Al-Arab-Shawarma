@@ -63,8 +63,26 @@ import { z } from "zod";
 import { Toaster, toast } from "sonner";
 
 import { getPublicMenu } from "@/lib/api/menu.functions";
+import {
+  getPublicSeoSettings,
+  getPublicSiteSettings,
+  type PublicOpeningHours,
+} from "@/lib/api/site-settings.functions";
+import {
+  getPublicSiteContent,
+  type PublicAboutContent,
+  type PublicHeroContent,
+} from "@/lib/api/site-content.functions";
 import { ALL_AREAS, resolveArea, suggestAreas, ZONES } from "@/lib/delivery-areas";
+import {
+  buildOpeningHoursLd,
+  hoursClose,
+  hoursFrequencyLabel,
+  hoursRange,
+} from "@/lib/opening-hours";
 import { buildOrderMessage } from "@/lib/order-message";
+import { buildThemeCss } from "@/lib/theme";
+import { buildHomeSeoHead, FALLBACK_SEO } from "@/lib/seo";
 
 import { Sheet, SheetContent, SheetClose, SheetTitle } from "@/components/ui/sheet";
 import {
@@ -137,7 +155,24 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   "fa-diamond-turn-right": ArrowRightFromLine,
   "fa-map-location-dot": MapPin,
   "fa-pen": Pen,
+  // Site content feature icons (iconKey values stored in the database)
+  leaf: Leaf,
+  "badge-check": BadgeCheck,
+  zap: Zap,
+  star: Star,
+  "utensils-crossed": UtensilsCrossed,
+  "shield-check": ShieldCheck,
+  "chef-hat": ChefHat,
+  gem: Gem,
+  tag: Tag,
 };
+
+// Social platform → footer icon mapping (mirrors prisma/seed-data.ts iconKeys).
+const SOCIAL_PLATFORM_ICONS = {
+  whatsapp: MessageCircle,
+  instagram: Instagram,
+  facebook: Facebook,
+} as const;
 
 function Icon({ name, className }: { name: string; className?: string }) {
   const Comp = iconMap[name];
@@ -146,56 +181,147 @@ function Icon({ name, className }: { name: string; className?: string }) {
 }
 
 export const Route = createFileRoute("/")({
-  head: () => ({
-    meta: [
-      { title: "Al-Arab Shawarma — Order Authentic Arabic Shawarma in Karachi" },
+  loader: async () => {
+    const [settings, content, seo] = await Promise.all([
+      getPublicSiteSettings(),
+      getPublicSiteContent(),
+      getPublicSeoSettings(),
+    ]);
+    return { settings, content, seo };
+  },
+  head: ({ loaderData }) => {
+    const settings = loaderData?.settings;
+    const seo = loaderData?.seo ?? FALLBACK_SEO;
+    const restaurant = settings?.openingHours.restaurant ?? FALLBACK_OPENING_HOURS.restaurant;
+    const ldOpeningHours = buildOpeningHoursLd(restaurant);
+    const themeCss = buildThemeCss(settings?.theme);
+
+    const seoHead = buildHomeSeoHead(
+      seo,
       {
-        name: "description",
-        content:
-          "Order fresh Arabic shawarma, wraps, platters & grill from Al-Arab Shawarma, Sharfabad Karachi. Delivery 4 PM – 2 AM all over Karachi. Easy WhatsApp ordering.",
+        contact: settings?.contact ?? {
+          restaurantName: FALLBACK_RESTAURANT_NAME,
+          address: FALLBACK_ADDRESS,
+          phoneTel: "+92-333-3686848",
+        },
+        socialLinks: settings?.socialLinks ?? [],
       },
-      { property: "og:title", content: "Al-Arab Shawarma — Order Online in Karachi" },
-      {
-        property: "og:description",
-        content: "Authentic Arabic shawarma delivered across Karachi. Order via WhatsApp.",
-      },
-      { property: "og:site_name", content: "Al-Arab Shawarma" },
-    ],
-    links: [{ rel: "canonical", href: "/" }],
-    scripts: [
-      {
-        type: "application/ld+json",
-        children: JSON.stringify({
-          "@context": "https://schema.org",
-          "@type": "Restaurant",
-          name: "Al-Arab Shawarma",
-          servesCuisine: ["Arabic", "Middle Eastern", "Fast Food"],
-          address: {
-            "@type": "PostalAddress",
-            streetAddress: "Main Sharfabad Signal",
-            addressLocality: "Karachi",
-            addressRegion: "Sindh",
-            addressCountry: "PK",
-          },
-          telephone: "+92-333-3686848",
-          openingHours: "Mo-Su 16:00-04:00",
-          priceRange: "Rs. 30 – Rs. 1300",
-          areaServed: "Karachi",
-          hasMap: "https://www.google.com/maps?q=Sharfabad+Signal,+Karachi,+Pakistan",
-          acceptsReservations: "False",
-        }),
-      },
-    ],
-  }),
+      ldOpeningHours,
+    );
+
+    return {
+      meta: seoHead.meta,
+      links: seoHead.links,
+      styles: [{ children: themeCss }],
+      scripts: seoHead.scripts,
+    };
+  },
   component: Home,
 });
 
-const WHATSAPP_NUMBER = "923333686848";
-const EASYPAISA_NUMBER = "0333-3686848";
-const EASYPAISA_TITLE = "Sada Haider Haidri";
-const BANK_TITLE = "SADA HAIDER HADERI";
-const BANK_IBAN = "PK86FAYS3574703000003897";
-const BANK_NAME = "Faysal Bank";
+const FALLBACK_WHATSAPP_NUMBER = "923333686848";
+const FALLBACK_EASYPAISA_NUMBER = "0333-3686848";
+const FALLBACK_EASYPAISA_TITLE = "Sada Haider Haidri";
+const FALLBACK_BANK_TITLE = "SADA HAIDER HADERI";
+const FALLBACK_BANK_IBAN = "PK86FAYS3574703000003897";
+const FALLBACK_BANK_NAME = "Faysal Bank";
+const FALLBACK_RESTAURANT_NAME = "Al-Arab Shawarma";
+const FALLBACK_TAGLINE = "Authentic Arabic Taste · Since 1998";
+const FALLBACK_PHONE_DISPLAY = "0333-3686848";
+const FALLBACK_ADDRESS = "Main Sharfabad Signal, Karachi, Pakistan";
+const FALLBACK_MAPS_EMBED_URL =
+  "https://www.google.com/maps?q=Sharfabad+Signal,+Karachi,+Pakistan&output=embed";
+const FALLBACK_MAPS_DIRECTIONS_URL =
+  "https://www.google.com/maps/search/?api=1&query=Sharfabad+Signal+Karachi";
+const FALLBACK_PAYMENT_NOTE =
+  "Please transfer the total amount, take a screenshot of the receipt, and confirm your order. The details will be forwarded directly to our WhatsApp for verification.";
+
+const FALLBACK_OPENING_HOURS: PublicOpeningHours = {
+  restaurant: [0, 1, 2, 3, 4, 5, 6].map((dayOfWeek) => ({
+    dayOfWeek,
+    type: "restaurant",
+    openTime: "16:00",
+    closeTime: "04:00",
+    isClosed: false,
+  })),
+  delivery: [0, 1, 2, 3, 4, 5, 6].map((dayOfWeek) => ({
+    dayOfWeek,
+    type: "delivery",
+    openTime: "16:00",
+    closeTime: "02:00",
+    isClosed: false,
+  })),
+};
+
+const FALLBACK_HERO: PublicHeroContent = {
+  badgeText: "Delivery All Over Karachi",
+  headline: "Al-Arab",
+  headlineHighlight: "Shawarma",
+  subheadline:
+    "Authentic Arabic Shawarma — Fresh & Delicious. Order now and get it hot at your door.",
+  arabicTagline: "ذوق العرب الأصيل",
+  badgeTitle: "A Legacy of Flavor",
+  badgeSubtitle: "Established in 1991 | Registered in 1998",
+  ctaPrimaryText: "View Menu",
+  ctaPrimaryHref: "#menu",
+  ctaSecondaryText: "Order Now",
+  ctaSecondaryHref: "#checkout",
+  features: [
+    { iconKey: "leaf", label: "Fresh Ingredients" },
+    { iconKey: "badge-check", label: "Halal Food" },
+    { iconKey: "zap", label: "Fast Delivery" },
+    { iconKey: "star", label: "Authentic Taste" },
+  ],
+};
+
+const FALLBACK_ABOUT: PublicAboutContent = {
+  badgeLabel: "About Al-Arab",
+  heading: "Authentic recipes, ",
+  headingHighlight: "premium quality",
+  body: "At Al-Arab Shawarma, we bring the streets of Arabia to Karachi. From marinated meats slow-roasted on a vertical spit to house-made sauces and fresh-baked bread — every bite is crafted by experienced chefs in a hygienic kitchen using only the freshest ingredients.",
+  imageOverlayTitle: "Hand-shaved. Flame-grilled.",
+  imageOverlayText: "Slow-roasted on a vertical spit, just like in Arabia.",
+  whyUsHeading: "Karachi's ",
+  whyUsHeadingHighlight: "Favorite",
+  features: [
+    { iconKey: "utensils-crossed", label: "Authentic Arabic Recipes" },
+    { iconKey: "leaf", label: "Fresh Ingredients Daily" },
+    { iconKey: "shield-check", label: "Hygienic Kitchen" },
+    { iconKey: "chef-hat", label: "Experienced Chefs" },
+  ],
+  whyUsFeatures: [
+    {
+      iconKey: "star",
+      label: "Authentic Arabic Taste",
+      description: "Recipes straight from the streets of Arabia.",
+    },
+    {
+      iconKey: "leaf",
+      label: "Fresh Ingredients",
+      description: "Sourced daily, never frozen.",
+    },
+    {
+      iconKey: "gem",
+      label: "Premium Quality",
+      description: "Made with care, served with pride.",
+    },
+    {
+      iconKey: "shield-check",
+      label: "Hygienic Kitchen",
+      description: "Spotless prep area, certified clean.",
+    },
+    {
+      iconKey: "zap",
+      label: "Fast Delivery",
+      description: "Hot at your door across Karachi.",
+    },
+    {
+      iconKey: "tag",
+      label: "Affordable Prices",
+      description: "Premium taste, honest pricing.",
+    },
+  ],
+};
 
 type ItemSize = { label: string; price: number };
 type Item = {
@@ -744,6 +870,67 @@ function Home() {
     staleTime: 60_000,
   });
 
+  const { settings: ssrSettings, content: ssrContent } = Route.useLoaderData();
+
+  const siteSettingsQuery = useQuery({
+    queryKey: ["public-site-settings"],
+    queryFn: () => getPublicSiteSettings(),
+    initialData: ssrSettings,
+    staleTime: 60_000,
+  });
+
+  const siteContentQuery = useQuery({
+    queryKey: ["public-site-content"],
+    queryFn: () => getPublicSiteContent(),
+    initialData: ssrContent,
+    staleTime: 60_000,
+  });
+
+  const siteContent = siteContentQuery.data;
+  const hero = siteContent?.hero ?? FALLBACK_HERO;
+  const about = siteContent?.about ?? FALLBACK_ABOUT;
+
+  const siteSettings = siteSettingsQuery.data;
+  const theme = siteSettings?.theme;
+  const whatsappNumber = siteSettings?.contact.whatsappNumber ?? FALLBACK_WHATSAPP_NUMBER;
+  const socialLinks = siteSettings?.socialLinks ?? [];
+  const easypaisaNumber = siteSettings?.payment.easypaisaNumber ?? FALLBACK_EASYPAISA_NUMBER;
+  const easypaisaTitle = siteSettings?.payment.easypaisaTitle ?? FALLBACK_EASYPAISA_TITLE;
+  const bankName = siteSettings?.payment.bankName ?? FALLBACK_BANK_NAME;
+  const bankTitle = siteSettings?.payment.bankTitle ?? FALLBACK_BANK_TITLE;
+  const bankIban = siteSettings?.payment.bankIban ?? FALLBACK_BANK_IBAN;
+  const paymentNote = siteSettings?.payment.paymentNote ?? FALLBACK_PAYMENT_NOTE;
+  const phoneDisplay = siteSettings?.contact.phoneDisplay ?? FALLBACK_PHONE_DISPLAY;
+  const address = siteSettings?.contact.address ?? FALLBACK_ADDRESS;
+  const mapsEmbedUrl = siteSettings?.contact.mapsEmbedUrl ?? FALLBACK_MAPS_EMBED_URL;
+  const mapsDirectionsUrl = siteSettings?.contact.mapsDirectionsUrl ?? FALLBACK_MAPS_DIRECTIONS_URL;
+  const restaurantName = siteSettings?.contact.restaurantName ?? FALLBACK_RESTAURANT_NAME;
+  const tagline = siteSettings?.contact.tagline ?? FALLBACK_TAGLINE;
+
+  const restaurantHours =
+    siteSettings?.openingHours.restaurant ?? FALLBACK_OPENING_HOURS.restaurant;
+  const deliveryHours = siteSettings?.openingHours.delivery ?? FALLBACK_OPENING_HOURS.delivery;
+
+  const restaurantOpen = restaurantHours.some((s) => !s.isClosed);
+  const deliveryOpen = deliveryHours.some((s) => !s.isClosed);
+  const heroOpenLabel = restaurantOpen
+    ? `Open ${hoursRange(restaurantHours, false)}`
+    : "Currently Closed";
+  const deliveryTillLabel = deliveryOpen
+    ? `Delivery till ${hoursClose(deliveryHours, false)}`
+    : "Delivery unavailable";
+  const deliverySummary = deliveryOpen
+    ? `${hoursFrequencyLabel(deliveryHours)} ${hoursRange(deliveryHours, true)} · Area-wise charges below.`
+    : "Delivery currently unavailable · Area-wise charges below.";
+  const restaurantHoursLabel = hoursRange(restaurantHours, true);
+  const deliveryHoursLabel = hoursRange(deliveryHours, true);
+  const restaurantFrequency = hoursFrequencyLabel(restaurantHours);
+  const deliveryFrequency = hoursFrequencyLabel(deliveryHours);
+  const footerHoursLabel = hoursRange(restaurantHours, false);
+  const footerDeliveryLabel = deliveryOpen
+    ? `Delivery till ${hoursClose(deliveryHours, false)}`
+    : "Delivery unavailable";
+
   const menuItems: Item[] = useMemo(() => {
     const live = liveMenuQuery.data;
     if (!live || live.categories.length === 0) return MENU;
@@ -835,8 +1022,8 @@ function Home() {
 
   const paymentLabel: Record<PaymentMethod, string> = {
     cod: "Cash on Delivery",
-    easypaisa: `Easypaisa Transfer (${EASYPAISA_NUMBER} — ${EASYPAISA_TITLE})`,
-    bank: `Bank Transfer — ${BANK_NAME} · ${BANK_TITLE} · IBAN ${BANK_IBAN}`,
+    easypaisa: `Easypaisa Transfer (${easypaisaNumber} — ${easypaisaTitle})`,
+    bank: `Bank Transfer — ${bankName} · ${bankTitle} · IBAN ${bankIban}`,
   };
 
   const onOrder = (data: FormValues) => {
@@ -872,7 +1059,7 @@ function Home() {
       paymentLabel: paymentLabel[payment],
       paymentNote: payNote,
     });
-    window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(msg)}`, "_blank");
+    window.open(`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(msg)}`, "_blank");
     setOrdering(false);
     setConfirmOpen(true);
   };
@@ -888,6 +1075,7 @@ function Home() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
+      <style data-theme>{buildThemeCss(theme)}</style>
       <Toaster position="top-center" richColors closeButton />
 
       {/* NAV */}
@@ -897,16 +1085,16 @@ function Home() {
             <a href="#home" className="flex min-w-0 items-center gap-4">
               <img
                 src={logoSrc}
-                alt="Al-Arab Shawarma logo"
+                alt={`${restaurantName} logo`}
                 className="h-10 sm:h-11 w-auto aspect-square shrink-0 rounded-full object-cover ring-2 ring-gold/60 shadow-brand bg-ink"
                 loading="lazy"
               />
               <span className="min-w-0 flex flex-col justify-center leading-none">
                 <span className="block truncate font-display text-lg sm:text-xl font-extrabold leading-tight">
-                  Al-Arab <span className="text-gradient-gold">Shawarma</span>
+                  <Brand name={restaurantName} />
                 </span>
-                <span className="mt-1 hidden sm:block text-[10px] uppercase tracking-[0.2em] text-gold/80 font-semibold">
-                  Authentic Arabic · Since 1998
+                <span className="mt-1 hidden sm:block truncate text-[10px] uppercase tracking-[0.2em] text-gold/80 font-semibold">
+                  {tagline}
                 </span>
               </span>
             </a>
@@ -972,71 +1160,76 @@ function Home() {
         <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 min-h-[88svh] sm:min-h-[92vh] flex items-center">
           <div className="max-w-2xl py-14 sm:py-20 lg:py-24 text-left text-white">
             <span className="inline-flex items-center gap-2 rounded-full border border-gold/40 bg-gold/10 px-3.5 py-1.5 text-xs font-semibold uppercase tracking-[0.2em] text-gold backdrop-blur-sm">
-              <Truck className="h-3.5 w-3.5" /> Delivery All Over Karachi
+              <Truck className="h-3.5 w-3.5" /> {hero.badgeText}
             </span>
             <h1 className="mt-4 sm:mt-6 font-display text-4xl font-black leading-[1.05] sm:text-7xl lg:text-8xl">
-              Al-Arab
-              <span className="block text-gradient-gold">Shawarma</span>
+              {hero.headline}
+              {hero.headlineHighlight ? (
+                <span className="block text-gradient-gold">{hero.headlineHighlight}</span>
+              ) : null}
             </h1>
             <p className="mt-3 sm:mt-5 text-base sm:text-xl text-white/85 max-w-xl">
-              Authentic Arabic Shawarma — Fresh & Delicious. Order now and get it hot at your door.
+              {hero.subheadline}
             </p>
-            <p className="mt-1.5 sm:mt-2 font-arabic text-xl sm:text-2xl text-gold/90" dir="rtl">
-              ذوق العرب الأصيل
-            </p>
+            {hero.arabicTagline ? (
+              <p className="mt-1.5 sm:mt-2 font-arabic text-xl sm:text-2xl text-gold/90" dir="rtl">
+                {hero.arabicTagline}
+              </p>
+            ) : null}
 
             {/* Heritage Badge */}
             <div className="mt-4 sm:mt-6 inline-flex items-center gap-3 rounded-2xl border border-gold/50 bg-gradient-to-r from-gold/20 via-gold/10 to-transparent px-4 py-2.5 sm:px-5 sm:py-3 backdrop-blur-sm shadow-gold-glow">
               <Award className="h-6 w-6 sm:h-7 sm:w-7 text-gold" />
               <div className="leading-tight">
                 <div className="text-[10px] uppercase tracking-[0.28em] text-gold/80 font-semibold">
-                  A Legacy of Flavor
+                  {hero.badgeTitle}
                 </div>
                 <div className="font-display text-sm sm:text-lg font-black text-gradient-gold">
-                  Established in 1991 <span className="text-white/60 font-normal mx-1">|</span>{" "}
-                  Registered in 1998
+                  {hero.badgeSubtitle
+                    ? hero.badgeSubtitle.split(/\s*\|\s*/).map((part, i) => (
+                        <span key={`${part}-${i}`}>
+                          {i > 0 && <span className="text-white/60 font-normal mx-1">|</span>}
+                          {part}
+                        </span>
+                      ))
+                    : null}
                 </div>
               </div>
             </div>
 
             <div className="mt-4 sm:mt-6 flex flex-wrap gap-3 text-xs sm:text-sm text-white/85">
               <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 backdrop-blur">
-                <ClockIcon className="h-3.5 w-3.5 text-gold" /> Open 4 PM – 4 AM
+                <ClockIcon className="h-3.5 w-3.5 text-gold" /> {heroOpenLabel}
               </span>
               <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 backdrop-blur">
-                <Bike className="h-3.5 w-3.5 text-gold" /> Delivery till 2 AM
+                <Bike className="h-3.5 w-3.5 text-gold" /> {deliveryTillLabel}
               </span>
             </div>
 
             <div className="mt-6 sm:mt-8 flex flex-wrap gap-3 sm:gap-4">
               <a
-                href="#menu"
+                href={hero.ctaPrimaryHref ?? "#menu"}
                 className="group inline-flex items-center gap-3 rounded-full bg-gold px-6 py-3.5 text-sm font-bold text-gold-foreground shadow-gold-glow hover:scale-105 transition-transform sm:px-7 sm:py-4 sm:text-base"
               >
-                <UtensilsCrossed className="h-5 w-5" /> View Menu
+                <UtensilsCrossed className="h-5 w-5" /> {hero.ctaPrimaryText}
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
               </a>
               <a
-                href="#checkout"
+                href={hero.ctaSecondaryHref ?? "#checkout"}
                 className="inline-flex items-center gap-3 rounded-full border-2 border-white/30 bg-white/10 px-6 py-3.5 text-sm font-bold text-white backdrop-blur-sm hover:bg-white hover:text-brand transition-colors sm:px-7 sm:py-4 sm:text-base"
               >
-                <ShoppingBag className="h-5 w-5" /> Order Now
+                <ShoppingBag className="h-5 w-5" /> {hero.ctaSecondaryText}
               </a>
             </div>
 
             <div className="mt-6 sm:mt-10 grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 max-w-xl">
-              {[
-                { Icon: Leaf, t: "Fresh Ingredients" },
-                { Icon: BadgeCheck, t: "Halal Food" },
-                { Icon: Zap, t: "Fast Delivery" },
-                { Icon: Star, t: "Authentic Taste" },
-              ].map((b) => (
+              {hero.features.map((b) => (
                 <div
-                  key={b.t}
+                  key={b.label}
                   className="flex items-center gap-2 rounded-xl bg-white/10 px-3 py-2.5 backdrop-blur border border-white/10"
                 >
-                  <b.Icon className="h-3.5 w-3.5 text-gold" />
-                  <span className="text-xs font-semibold">{b.t}</span>
+                  <Icon name={b.iconKey} className="h-3.5 w-3.5 text-gold" />
+                  <span className="text-xs font-semibold">{b.label}</span>
                 </div>
               ))}
             </div>
@@ -1050,45 +1243,38 @@ function Home() {
           <div className="relative rounded-3xl overflow-hidden shadow-card-soft aspect-[4/3]">
             <img
               src={spitImg}
-              alt="Live shawarma spit"
+              alt="Shawarma roasting on a vertical spit at Al-Arab Shawarma in Karachi"
               className="absolute inset-0 h-full w-full object-cover"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-ink/70 to-transparent" />
             <div className="absolute bottom-6 left-6 right-6 text-white">
-              <div className="font-display text-3xl font-bold">Hand-shaved. Flame-grilled.</div>
-              <div className="text-sm opacity-80">
-                Slow-roasted on a vertical spit, just like in Arabia.
-              </div>
+              <div className="font-display text-3xl font-bold">{about.imageOverlayTitle}</div>
+              <div className="text-sm opacity-80">{about.imageOverlayText}</div>
             </div>
           </div>
           <div>
             <span className="text-xs uppercase tracking-[0.3em] text-brand font-bold">
-              About Al-Arab
+              {about.badgeLabel}
             </span>
             <h2 className="mt-3 font-display text-3xl sm:text-5xl font-black text-foreground">
-              Authentic recipes, <span className="text-gradient-gold">premium quality</span>
+              {about.heading}
+              {about.headingHighlight ? (
+                <span className="text-gradient-gold">{about.headingHighlight}</span>
+              ) : null}
             </h2>
             <p className="mt-4 text-foreground/75 text-base sm:text-lg leading-relaxed">
-              At Al-Arab Shawarma, we bring the streets of Arabia to Karachi. From marinated meats
-              slow-roasted on a vertical spit to house-made sauces and fresh-baked bread — every
-              bite is crafted by experienced chefs in a hygienic kitchen using only the freshest
-              ingredients.
+              {about.body}
             </p>
             <div className="mt-6 sm:mt-8 grid grid-cols-2 gap-4">
-              {[
-                { Icon: UtensilsCrossed, t: "Authentic Arabic Recipes" },
-                { Icon: Leaf, t: "Fresh Ingredients Daily" },
-                { Icon: ShieldCheck, t: "Hygienic Kitchen" },
-                { Icon: ChefHat, t: "Experienced Chefs" },
-              ].map((f) => (
+              {about.features.map((f) => (
                 <div
-                  key={f.t}
+                  key={f.label}
                   className="flex items-center gap-3 rounded-xl bg-card p-4 border border-border shadow-card-soft"
                 >
                   <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-gradient-brand text-brand-foreground">
-                    <f.Icon className="h-5 w-5" />
+                    <Icon name={f.iconKey} className="h-5 w-5" />
                   </span>
-                  <span className="min-w-0 text-sm font-semibold leading-snug">{f.t}</span>
+                  <span className="min-w-0 text-sm font-semibold leading-snug">{f.label}</span>
                 </div>
               ))}
             </div>
@@ -1161,8 +1347,7 @@ function Home() {
               Delivery <span className="text-gradient-gold">All Over Karachi</span>
             </h2>
             <p className="mt-4 text-cream/70">
-              Daily 4:00 PM – 2:00 AM · Area-wise charges below.{" "}
-              <span className="text-gold">Emaar is not included.</span>
+              {deliverySummary} <span className="text-gold">Emaar is not included.</span>
             </p>
           </div>
 
@@ -1352,19 +1537,19 @@ function Home() {
                     <div className="mt-4 space-y-3">
                       <CopyRow
                         label="Account Number"
-                        value={EASYPAISA_NUMBER}
-                        onCopy={() => copy(EASYPAISA_NUMBER, "easy-num")}
+                        value={easypaisaNumber}
+                        onCopy={() => copy(easypaisaNumber, "easy-num")}
                         copied={copied === "easy-num"}
                         mono
                       />
                       <CopyRow
                         label="Account Title"
-                        value={EASYPAISA_TITLE}
-                        onCopy={() => copy(EASYPAISA_TITLE, "easy-t")}
+                        value={easypaisaTitle}
+                        onCopy={() => copy(easypaisaTitle, "easy-t")}
                         copied={copied === "easy-t"}
                       />
                     </div>
-                    <PaymentNote />
+                    <PaymentNote note={paymentNote} />
                   </div>
                 )}
 
@@ -1377,7 +1562,7 @@ function Home() {
                       <div className="mx-auto sm:mx-0">
                         <div className="rounded-2xl bg-white p-4 border-4 border-brand shadow-brand">
                           <QRCodeSVG
-                            value={`Bank: ${BANK_NAME}\nTitle: ${BANK_TITLE}\nIBAN: ${BANK_IBAN}`}
+                            value={`Bank: ${bankName}\nTitle: ${bankTitle}\nIBAN: ${bankIban}`}
                             size={192}
                             level="H"
                             marginSize={0}
@@ -1392,26 +1577,26 @@ function Home() {
                       <div className="space-y-3">
                         <CopyRow
                           label="Bank Name"
-                          value={BANK_NAME}
-                          onCopy={() => copy(BANK_NAME, "bn")}
+                          value={bankName}
+                          onCopy={() => copy(bankName, "bn")}
                           copied={copied === "bn"}
                         />
                         <CopyRow
                           label="Account Title"
-                          value={BANK_TITLE}
-                          onCopy={() => copy(BANK_TITLE, "bt")}
+                          value={bankTitle}
+                          onCopy={() => copy(bankTitle, "bt")}
                           copied={copied === "bt"}
                         />
                         <CopyRow
                           label="IBAN"
-                          value={BANK_IBAN}
-                          onCopy={() => copy(BANK_IBAN, "iban")}
+                          value={bankIban}
+                          onCopy={() => copy(bankIban, "iban")}
                           copied={copied === "iban"}
                           mono
                         />
                       </div>
                     </div>
-                    <PaymentNote />
+                    <PaymentNote note={paymentNote} />
                   </div>
                 )}
               </div>
@@ -1487,35 +1672,23 @@ function Home() {
               Why Choose Us
             </span>
             <h2 className="mt-3 font-display text-3xl sm:text-5xl font-black">
-              Karachi's <span className="text-gradient-gold">Favorite</span> Shawarma
+              {about.whyUsHeading}
+              {about.whyUsHeadingHighlight ? (
+                <span className="text-gradient-gold">{about.whyUsHeadingHighlight}</span>
+              ) : null}
             </h2>
           </div>
           <div className="mt-8 sm:mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {[
-              {
-                Icon: Star,
-                t: "Authentic Arabic Taste",
-                d: "Recipes straight from the streets of Arabia.",
-              },
-              { Icon: Leaf, t: "Fresh Ingredients", d: "Sourced daily, never frozen." },
-              { Icon: Gem, t: "Premium Quality", d: "Made with care, served with pride." },
-              {
-                Icon: ShieldCheck,
-                t: "Hygienic Kitchen",
-                d: "Spotless prep area, certified clean.",
-              },
-              { Icon: Zap, t: "Fast Delivery", d: "Hot at your door across Karachi." },
-              { Icon: Tag, t: "Affordable Prices", d: "Premium taste, honest pricing." },
-            ].map((f) => (
+            {about.whyUsFeatures.map((f) => (
               <div
-                key={f.t}
+                key={f.label}
                 className="rounded-2xl bg-card border border-border p-6 shadow-card-soft hover:shadow-brand hover:-translate-y-1 transition-all"
               >
                 <span className="grid h-12 w-12 place-items-center rounded-xl bg-gradient-brand text-brand-foreground shadow-brand">
-                  <f.Icon className="h-5 w-5" />
+                  <Icon name={f.iconKey} className="h-5 w-5" />
                 </span>
-                <h3 className="mt-4 font-display text-lg font-bold sm:text-xl">{f.t}</h3>
-                <p className="mt-2 text-sm text-muted-foreground">{f.d}</p>
+                <h3 className="mt-4 font-display text-lg font-bold sm:text-xl">{f.label}</h3>
+                <p className="mt-2 text-sm text-muted-foreground">{f.description}</p>
               </div>
             ))}
           </div>
@@ -1536,10 +1709,18 @@ function Home() {
           <div className="mt-8 sm:mt-14 grid lg:grid-cols-5 gap-8">
             <div className="lg:col-span-2 space-y-4">
               {[
-                { Icon: MapPin, t: "Our Address", v: "Main Sharfabad Signal, Karachi, Pakistan" },
-                { Icon: ClockIcon, t: "Restaurant Hours", v: "4:00 PM – 4:00 AM · Daily" },
-                { Icon: Bike, t: "Delivery Hours", v: "4:00 PM – 2:00 AM · Daily" },
-                { Icon: Phone, t: "Call Us", v: "0333-3686848" },
+                { Icon: MapPin, t: "Our Address", v: address },
+                {
+                  Icon: ClockIcon,
+                  t: "Restaurant Hours",
+                  v: `${restaurantHoursLabel} · ${restaurantFrequency}`,
+                },
+                {
+                  Icon: Bike,
+                  t: "Delivery Hours",
+                  v: `${deliveryHoursLabel} · ${deliveryFrequency}`,
+                },
+                { Icon: Phone, t: "Call Us", v: phoneDisplay },
               ].map((c) => (
                 <div
                   key={c.t}
@@ -1557,7 +1738,7 @@ function Home() {
                 </div>
               ))}
               <a
-                href="https://www.google.com/maps/search/?api=1&query=Sharfabad+Signal+Karachi"
+                href={mapsDirectionsUrl}
                 target="_blank"
                 rel="noreferrer"
                 className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-gold py-3.5 font-bold text-gold-foreground shadow-gold-glow hover:scale-[1.02] transition-transform"
@@ -1567,8 +1748,8 @@ function Home() {
             </div>
             <div className="lg:col-span-3 rounded-3xl overflow-hidden border border-border shadow-card-soft min-h-[400px]">
               <iframe
-                title="Al-Arab Shawarma Map"
-                src="https://www.google.com/maps?q=Sharfabad+Signal,+Karachi,+Pakistan&output=embed"
+                title={`${restaurantName} Map`}
+                src={mapsEmbedUrl}
                 className="w-full h-full min-h-[400px]"
                 loading="lazy"
               />
@@ -1588,11 +1769,15 @@ function Home() {
           </div>
           <div className="mt-8 sm:mt-12 grid lg:grid-cols-2 gap-8">
             <div className="space-y-4">
-              <ContactRow Icon={Phone} t="Phone" v="0333-3686848" />
-              <ContactRow Icon={MapPin} t="Address" v="Main Sharfabad Signal, Karachi" />
-              <ContactRow Icon={ClockIcon} t="Hours" v="4:00 PM – 4:00 AM Daily" />
+              <ContactRow Icon={Phone} t="Phone" v={phoneDisplay} />
+              <ContactRow Icon={MapPin} t="Address" v={address} />
+              <ContactRow
+                Icon={ClockIcon}
+                t="Hours"
+                v={`${restaurantHoursLabel} ${restaurantFrequency}`}
+              />
               <a
-                href={`https://wa.me/${WHATSAPP_NUMBER}`}
+                href={`https://wa.me/${whatsappNumber}`}
                 target="_blank"
                 rel="noreferrer"
                 className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-whatsapp py-4 font-bold text-white hover:scale-[1.01] transition-transform"
@@ -1606,7 +1791,7 @@ function Home() {
                 const f = new FormData(e.currentTarget);
                 const msg = `*Contact from Website*\n\nName: ${f.get("name")}\nPhone: ${f.get("phone")}\nMessage: ${f.get("message")}`;
                 window.open(
-                  `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(msg)}`,
+                  `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(msg)}`,
                   "_blank",
                 );
               }}
@@ -1648,16 +1833,16 @@ function Home() {
             <div className="flex items-center gap-3">
               <img
                 src={logoSrc}
-                alt="Al-Arab Shawarma logo"
+                alt={`${restaurantName} logo`}
                 className="h-12 w-12 rounded-full object-cover ring-2 ring-gold/60 bg-ink"
                 loading="lazy"
               />
               <div>
                 <div className="font-display text-2xl font-extrabold">
-                  Al-Arab <span className="text-gradient-gold">Shawarma</span>
+                  <Brand name={restaurantName} />
                 </div>
                 <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                  Authentic Arabic Taste · Since 1998
+                  {tagline}
                 </div>
               </div>
             </div>
@@ -1683,37 +1868,40 @@ function Home() {
             <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
               <li>
                 <MapPin className="h-3.5 w-3.5 inline text-brand mr-2" />
-                Main Sharfabad Signal
+                {address}
               </li>
               <li>
-                <ClockIcon className="h-3.5 w-3.5 inline text-brand mr-2" />4 PM – 4 AM
+                <ClockIcon className="h-3.5 w-3.5 inline text-brand mr-2" />
+                {footerHoursLabel}
               </li>
               <li>
                 <Bike className="h-3.5 w-3.5 inline text-brand mr-2" />
-                Delivery till 2 AM
+                {footerDeliveryLabel}
               </li>
               <li>
                 <Phone className="h-3.5 w-3.5 inline text-brand mr-2" />
-                0333-3686848
+                {phoneDisplay}
               </li>
             </ul>
             <div className="mt-4 flex gap-3">
-              {[
-                { Icon: Facebook, h: "#", label: "Facebook" },
-                { Icon: Instagram, h: "#", label: "Instagram" },
-                { Icon: MessageCircle, h: `https://wa.me/${WHATSAPP_NUMBER}`, label: "WhatsApp" },
-              ].map((s) => (
-                <a
-                  key={s.label}
-                  href={s.h}
-                  target="_blank"
-                  rel="noreferrer"
-                  aria-label={s.label}
-                  className="grid h-10 w-10 place-items-center rounded-full bg-muted hover:bg-gold hover:text-gold-foreground transition-colors"
-                >
-                  <s.Icon className="h-4 w-4" />
-                </a>
-              ))}
+              {socialLinks.map((s) => {
+                const Icon = SOCIAL_PLATFORM_ICONS[s.platform];
+                if (!Icon) return null;
+                const href = s.url.trim();
+                if (!href || href === "#") return null;
+                return (
+                  <a
+                    key={s.platform}
+                    href={href}
+                    target="_blank"
+                    rel="noreferrer"
+                    aria-label={`${s.platform} link`}
+                    className="grid h-10 w-10 place-items-center rounded-full bg-muted hover:bg-gold hover:text-gold-foreground transition-colors"
+                  >
+                    <Icon className="h-4 w-4" />
+                  </a>
+                );
+              })}
             </div>
           </div>
         </div>
@@ -1837,7 +2025,7 @@ function Home() {
 
       {/* FLOATING BUTTONS */}
       <a
-        href={`https://wa.me/${WHATSAPP_NUMBER}`}
+        href={`https://wa.me/${whatsappNumber}`}
         target="_blank"
         rel="noreferrer"
         aria-label="WhatsApp"
@@ -2033,12 +2221,26 @@ function CopyRow({
   );
 }
 
-function PaymentNote() {
+function splitBrand(name: string) {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length <= 1) return { first: name, rest: "" };
+  return { first: parts[0], rest: parts.slice(1).join(" ") };
+}
+
+function Brand({ name }: { name: string }) {
+  const { first, rest } = splitBrand(name);
+  return (
+    <>
+      {first} {rest ? <span className="text-gradient-gold">{rest}</span> : null}
+    </>
+  );
+}
+
+function PaymentNote({ note }: { note: string }) {
   return (
     <p className="mt-4 text-xs leading-relaxed text-foreground/75 rounded-lg bg-background/60 border border-border p-3">
       <Info className="h-3.5 w-3.5 inline text-brand mr-1.5" />
-      Please transfer the total amount, take a screenshot of the receipt, and confirm your order.
-      The details will be forwarded directly to our WhatsApp for verification.
+      {note}
     </p>
   );
 }

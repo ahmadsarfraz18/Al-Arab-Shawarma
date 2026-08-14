@@ -3,9 +3,11 @@ import { useState } from "react";
 import {
   LayoutDashboard,
   LayoutGrid,
+  LayoutTemplate,
   LogOut,
   ExternalLink,
   Menu,
+  Settings,
   Store,
   UtensilsCrossed,
 } from "lucide-react";
@@ -44,6 +46,8 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Dashboard", icon: LayoutDashboard, to: "/admin" },
   { label: "Menu Items", icon: UtensilsCrossed, to: "/admin/menu" },
   { label: "Categories", icon: LayoutGrid, to: "/admin/categories" },
+  { label: "Homepage", icon: LayoutTemplate, to: "/admin/homepage" },
+  { label: "Settings", icon: Settings, to: "/admin/settings" },
 ];
 
 function initialsOf(name: string | undefined): string {
