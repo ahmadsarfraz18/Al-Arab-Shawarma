@@ -43,6 +43,8 @@ const ACTION_LABELS: Record<string, string> = {
 const ENTITY_LABELS: Record<string, string> = {
   menu_item: "menu item",
   category: "category",
+  delivery_zone: "delivery zone",
+  delivery_area: "delivery area",
   contact_settings: "contact settings",
   payment_settings: "payment settings",
 };

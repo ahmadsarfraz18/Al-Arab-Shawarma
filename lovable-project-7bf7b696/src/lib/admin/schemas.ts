@@ -56,6 +56,69 @@ export const categoryInputSchema = z.object({
   displayOrder: z.number().int().min(-10000).max(10000),
 });
 
+// ---------------------------------------------------------------------------
+// Delivery zones & areas
+// ---------------------------------------------------------------------------
+
+const deliveryChargeSchema = priceSchema;
+
+export const deliveryZoneInputSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(1, "Zone name is required")
+    .max(60, "Zone name must be 60 characters or fewer"),
+  deliveryCharge: deliveryChargeSchema,
+  status: statusSchema,
+  displayOrder: z.number().int().min(-10000).max(10000),
+});
+
+export const deliveryZoneUpdateSchema = deliveryZoneInputSchema.extend({
+  id: z.string().min(1, "Zone id is required"),
+});
+
+export const deliveryZoneIdSchema = z.object({
+  id: z.string().min(1, "Zone id is required"),
+});
+
+export const deliveryZoneStatusSchema = z.object({
+  id: z.string().min(1, "Zone id is required"),
+  status: statusSchema,
+});
+
+export const deliveryAreaInputSchema = z.object({
+  zoneId: z.string().min(1, "Zone is required"),
+  name: z
+    .string()
+    .trim()
+    .min(1, "Area name is required")
+    .max(120, "Area name must be 120 characters or fewer"),
+  status: statusSchema,
+});
+
+export const deliveryAreaUpdateSchema = z.object({
+  id: z.string().min(1, "Area id is required"),
+  zoneId: z.string().min(1, "Zone is required"),
+  name: z
+    .string()
+    .trim()
+    .min(1, "Area name is required")
+    .max(120, "Area name must be 120 characters or fewer"),
+  status: statusSchema,
+});
+
+export const deliveryAreaIdSchema = z.object({
+  id: z.string().min(1, "Area id is required"),
+});
+
+export const deliveryAreaStatusSchema = z.object({
+  id: z.string().min(1, "Area id is required"),
+  status: statusSchema,
+});
+
+export type DeliveryZoneInput = z.infer<typeof deliveryZoneInputSchema>;
+export type DeliveryAreaInput = z.infer<typeof deliveryAreaInputSchema>;
+
 export const categoryUpdateSchema = categoryInputSchema.extend({
   id: z.string().min(1, "Category id is required"),
 });

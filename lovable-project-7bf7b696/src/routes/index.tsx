@@ -73,7 +73,14 @@ import {
   type PublicAboutContent,
   type PublicHeroContent,
 } from "@/lib/api/site-content.functions";
-import { ALL_AREAS, resolveArea, suggestAreas, ZONES } from "@/lib/delivery-areas";
+import {
+  ALL_AREAS,
+  resolveArea,
+  suggestAreas,
+  type DeliveryArea,
+  ZONES,
+} from "@/lib/delivery-areas";
+import { getPublicDeliveryZones, type PublicDeliveryZone } from "@/lib/api/delivery.functions";
 import {
   buildOpeningHoursLd,
   hoursClose,
@@ -183,12 +190,13 @@ function Icon({ name, className }: { name: string; className?: string }) {
 
 export const Route = createFileRoute("/")({
   loader: async () => {
-    const [settings, content, seo] = await Promise.all([
+    const [settings, content, seo, delivery] = await Promise.all([
       getPublicSiteSettings(),
       getPublicSiteContent(),
       getPublicSeoSettings(),
+      getPublicDeliveryZones(),
     ]);
-    return { settings, content, seo, baseUrl: getSiteBaseUrl() };
+    return { settings, content, seo, delivery, baseUrl: getSiteBaseUrl() };
   },
   head: ({ loaderData }) => {
     const settings = loaderData?.settings;
@@ -873,7 +881,11 @@ function Home() {
     staleTime: 60_000,
   });
 
-  const { settings: ssrSettings, content: ssrContent } = Route.useLoaderData();
+  const {
+    settings: ssrSettings,
+    content: ssrContent,
+    delivery: ssrDelivery,
+  } = Route.useLoaderData();
 
   const siteSettingsQuery = useQuery({
     queryKey: ["public-site-settings"],
@@ -888,6 +900,23 @@ function Home() {
     initialData: ssrContent,
     staleTime: 60_000,
   });
+
+  // Serve delivery zones/areas from the database (admin-managed). The built-in
+  // ZONES/ALL_AREAS remain only as a fallback while loading or when no zone is
+  // configured yet — matching logic is unchanged.
+  const deliveryQuery = useQuery({
+    queryKey: ["public-delivery-zones"],
+    queryFn: () => getPublicDeliveryZones(),
+    initialData: ssrDelivery,
+    staleTime: 60_000,
+  });
+
+  const deliveryZones: PublicDeliveryZone[] | typeof ZONES =
+    deliveryQuery.data && deliveryQuery.data.zones.length > 0 ? deliveryQuery.data.zones : ZONES;
+  const deliveryAreas: DeliveryArea[] =
+    deliveryQuery.data && deliveryQuery.data.areas.length > 0
+      ? deliveryQuery.data.areas
+      : ALL_AREAS;
 
   const siteContent = siteContentQuery.data;
   const hero = siteContent?.hero ?? FALLBACK_HERO;
@@ -1005,7 +1034,7 @@ function Home() {
 
   // Suggestions resolve typed blocks against their grouped range on the fly
   // (e.g. "Clifton Block 4" -> "Clifton Block 4" · "Clifton Block 1-6" · Zone I).
-  const suggestions = suggestAreas(ALL_AREAS, areaQuery);
+  const suggestions = suggestAreas(deliveryAreas, areaQuery);
 
   const add = (key: string) => setCart((c) => ({ ...c, [key]: (c[key] || 0) + 1 }));
   const dec = (key: string) =>
@@ -1355,7 +1384,7 @@ function Home() {
           </div>
 
           <div className="mt-8 sm:mt-12 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            {ZONES.map((z) => (
+            {deliveryZones.map((z) => (
               <div
                 key={z.name}
                 className="rounded-2xl bg-white/5 border border-white/10 p-5 hover:border-gold/40 transition-colors"
@@ -1419,7 +1448,7 @@ function Home() {
                         onChange={(e) => {
                           const q = e.target.value;
                           setAreaQuery(q);
-                          setSelectedArea(resolveArea(ALL_AREAS, q));
+                          setSelectedArea(resolveArea(deliveryAreas, q));
                           setAreaOpen(q.trim() !== "");
                         }}
                         onFocus={() => setAreaOpen(true)}

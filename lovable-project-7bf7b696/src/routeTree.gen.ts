@@ -19,6 +19,7 @@ import { Route as AdminLayoutSettingsRouteImport } from './routes/admin/_layout/
 import { Route as AdminLayoutMenuRouteImport } from './routes/admin/_layout/menu'
 import { Route as AdminLayoutLoginRouteImport } from './routes/admin/_layout/login'
 import { Route as AdminLayoutHomepageRouteImport } from './routes/admin/_layout/homepage'
+import { Route as AdminLayoutDeliveryRouteImport } from './routes/admin/_layout/delivery'
 import { Route as AdminLayoutCategoriesRouteImport } from './routes/admin/_layout/categories'
 
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
@@ -71,6 +72,11 @@ const AdminLayoutHomepageRoute = AdminLayoutHomepageRouteImport.update({
   path: '/homepage',
   getParentRoute: () => AdminLayoutRouteRoute,
 } as any)
+const AdminLayoutDeliveryRoute = AdminLayoutDeliveryRouteImport.update({
+  id: '/delivery',
+  path: '/delivery',
+  getParentRoute: () => AdminLayoutRouteRoute,
+} as any)
 const AdminLayoutCategoriesRoute = AdminLayoutCategoriesRouteImport.update({
   id: '/categories',
   path: '/categories',
@@ -83,6 +89,7 @@ export interface FileRoutesByFullPath {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/admin': typeof AdminLayoutRouteRouteWithChildren
   '/admin/categories': typeof AdminLayoutCategoriesRoute
+  '/admin/delivery': typeof AdminLayoutDeliveryRoute
   '/admin/homepage': typeof AdminLayoutHomepageRoute
   '/admin/login': typeof AdminLayoutLoginRoute
   '/admin/menu': typeof AdminLayoutMenuRoute
@@ -95,6 +102,7 @@ export interface FileRoutesByTo {
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/admin/categories': typeof AdminLayoutCategoriesRoute
+  '/admin/delivery': typeof AdminLayoutDeliveryRoute
   '/admin/homepage': typeof AdminLayoutHomepageRoute
   '/admin/login': typeof AdminLayoutLoginRoute
   '/admin/menu': typeof AdminLayoutMenuRoute
@@ -109,6 +117,7 @@ export interface FileRoutesById {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/admin/_layout': typeof AdminLayoutRouteRouteWithChildren
   '/admin/_layout/categories': typeof AdminLayoutCategoriesRoute
+  '/admin/_layout/delivery': typeof AdminLayoutDeliveryRoute
   '/admin/_layout/homepage': typeof AdminLayoutHomepageRoute
   '/admin/_layout/login': typeof AdminLayoutLoginRoute
   '/admin/_layout/menu': typeof AdminLayoutMenuRoute
@@ -124,6 +133,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/admin'
     | '/admin/categories'
+    | '/admin/delivery'
     | '/admin/homepage'
     | '/admin/login'
     | '/admin/menu'
@@ -136,6 +146,7 @@ export interface FileRouteTypes {
     | '/robots.txt'
     | '/sitemap.xml'
     | '/admin/categories'
+    | '/admin/delivery'
     | '/admin/homepage'
     | '/admin/login'
     | '/admin/menu'
@@ -149,6 +160,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/admin/_layout'
     | '/admin/_layout/categories'
+    | '/admin/_layout/delivery'
     | '/admin/_layout/homepage'
     | '/admin/_layout/login'
     | '/admin/_layout/menu'
@@ -237,6 +249,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminLayoutHomepageRouteImport
       parentRoute: typeof AdminLayoutRouteRoute
     }
+    '/admin/_layout/delivery': {
+      id: '/admin/_layout/delivery'
+      path: '/delivery'
+      fullPath: '/admin/delivery'
+      preLoaderRoute: typeof AdminLayoutDeliveryRouteImport
+      parentRoute: typeof AdminLayoutRouteRoute
+    }
     '/admin/_layout/categories': {
       id: '/admin/_layout/categories'
       path: '/categories'
@@ -249,6 +268,7 @@ declare module '@tanstack/react-router' {
 
 interface AdminLayoutRouteRouteChildren {
   AdminLayoutCategoriesRoute: typeof AdminLayoutCategoriesRoute
+  AdminLayoutDeliveryRoute: typeof AdminLayoutDeliveryRoute
   AdminLayoutHomepageRoute: typeof AdminLayoutHomepageRoute
   AdminLayoutLoginRoute: typeof AdminLayoutLoginRoute
   AdminLayoutMenuRoute: typeof AdminLayoutMenuRoute
@@ -258,6 +278,7 @@ interface AdminLayoutRouteRouteChildren {
 
 const AdminLayoutRouteRouteChildren: AdminLayoutRouteRouteChildren = {
   AdminLayoutCategoriesRoute: AdminLayoutCategoriesRoute,
+  AdminLayoutDeliveryRoute: AdminLayoutDeliveryRoute,
   AdminLayoutHomepageRoute: AdminLayoutHomepageRoute,
   AdminLayoutLoginRoute: AdminLayoutLoginRoute,
   AdminLayoutMenuRoute: AdminLayoutMenuRoute,

@@ -9,6 +9,7 @@ import {
   Menu,
   Settings,
   Store,
+  Truck,
   UtensilsCrossed,
 } from "lucide-react";
 
@@ -46,6 +47,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Dashboard", icon: LayoutDashboard, to: "/admin" },
   { label: "Menu Items", icon: UtensilsCrossed, to: "/admin/menu" },
   { label: "Categories", icon: LayoutGrid, to: "/admin/categories" },
+  { label: "Delivery", icon: Truck, to: "/admin/delivery" },
   { label: "Homepage", icon: LayoutTemplate, to: "/admin/homepage" },
   { label: "Settings", icon: Settings, to: "/admin/settings" },
 ];
