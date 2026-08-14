@@ -9,6 +9,8 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as RobotsDottxtRouteImport } from './routes/robots[.]txt'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminLayoutRouteRouteImport } from './routes/admin/_layout/route'
 import { Route as AdminLayoutIndexRouteImport } from './routes/admin/_layout/index'
@@ -19,6 +21,16 @@ import { Route as AdminLayoutLoginRouteImport } from './routes/admin/_layout/log
 import { Route as AdminLayoutHomepageRouteImport } from './routes/admin/_layout/homepage'
 import { Route as AdminLayoutCategoriesRouteImport } from './routes/admin/_layout/categories'
 
+const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
+  id: '/sitemap.xml',
+  path: '/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RobotsDottxtRoute = RobotsDottxtRouteImport.update({
+  id: '/robots.txt',
+  path: '/robots.txt',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -67,6 +79,8 @@ const AdminLayoutCategoriesRoute = AdminLayoutCategoriesRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/robots.txt': typeof RobotsDottxtRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/admin': typeof AdminLayoutRouteRouteWithChildren
   '/admin/categories': typeof AdminLayoutCategoriesRoute
   '/admin/homepage': typeof AdminLayoutHomepageRoute
@@ -78,6 +92,8 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/robots.txt': typeof RobotsDottxtRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/admin/categories': typeof AdminLayoutCategoriesRoute
   '/admin/homepage': typeof AdminLayoutHomepageRoute
   '/admin/login': typeof AdminLayoutLoginRoute
@@ -89,6 +105,8 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/robots.txt': typeof RobotsDottxtRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/admin/_layout': typeof AdminLayoutRouteRouteWithChildren
   '/admin/_layout/categories': typeof AdminLayoutCategoriesRoute
   '/admin/_layout/homepage': typeof AdminLayoutHomepageRoute
@@ -102,6 +120,8 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/robots.txt'
+    | '/sitemap.xml'
     | '/admin'
     | '/admin/categories'
     | '/admin/homepage'
@@ -113,6 +133,8 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/robots.txt'
+    | '/sitemap.xml'
     | '/admin/categories'
     | '/admin/homepage'
     | '/admin/login'
@@ -123,6 +145,8 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/robots.txt'
+    | '/sitemap.xml'
     | '/admin/_layout'
     | '/admin/_layout/categories'
     | '/admin/_layout/homepage'
@@ -135,12 +159,28 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  RobotsDottxtRoute: typeof RobotsDottxtRoute
+  SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   AdminLayoutRouteRoute: typeof AdminLayoutRouteRouteWithChildren
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/sitemap.xml': {
+      id: '/sitemap.xml'
+      path: '/sitemap.xml'
+      fullPath: '/sitemap.xml'
+      preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/robots.txt': {
+      id: '/robots.txt'
+      path: '/robots.txt'
+      fullPath: '/robots.txt'
+      preLoaderRoute: typeof RobotsDottxtRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -230,6 +270,8 @@ const AdminLayoutRouteRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  RobotsDottxtRoute: RobotsDottxtRoute,
+  SitemapDotxmlRoute: SitemapDotxmlRoute,
   AdminLayoutRouteRoute: AdminLayoutRouteRouteWithChildren,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
 }

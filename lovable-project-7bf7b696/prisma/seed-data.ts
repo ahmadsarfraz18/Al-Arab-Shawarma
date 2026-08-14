@@ -17,10 +17,11 @@ export type SeedMenuItem = {
 export type SeedCategory = { name: string; items: SeedMenuItem[] };
 
 export const seedData = {
+  // The admin password is intentionally NOT stored here. It is read from the
+  // ADMIN_PASSWORD environment variable by prisma/seed.ts and hashed with scrypt.
   user: {
     name: "Al-Arab Shawarma Owner",
     email: "owner@al-arbalshawarma.com",
-    password: "Ownerowner@123",
   },
 
   hero: {

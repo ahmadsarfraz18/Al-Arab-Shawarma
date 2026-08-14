@@ -6,6 +6,7 @@ import {
   buildHomeSeoHead,
   buildRestaurantJsonLd,
   parseAddress,
+  resolveCanonicalUrl,
   robotsContent,
   type PublicSeoSettings,
   type SeoSiteInfo,
@@ -96,6 +97,42 @@ describe("buildRestaurantJsonLd", () => {
     );
     assert.equal(node.acceptsReservations, false);
   });
+
+  it("resolves a relative canonical against baseUrl into the JSON-LD url", () => {
+    const node = buildRestaurantJsonLd(seo, SITE, "", "https://al-arbalshawarma.com");
+    assert.equal(node.url, "https://al-arbalshawarma.com/");
+  });
+});
+
+describe("resolveCanonicalUrl", () => {
+  it("passes absolute URLs through untouched", () => {
+    assert.equal(
+      resolveCanonicalUrl("https://al-arbalshawarma.com/", "https://example.com"),
+      "https://al-arbalshawarma.com/",
+    );
+  });
+
+  it("resolves a relative path against the site origin", () => {
+    assert.equal(
+      resolveCanonicalUrl("/", "https://al-arbalshawarma.com"),
+      "https://al-arbalshawarma.com/",
+    );
+    assert.equal(
+      resolveCanonicalUrl("/menu", "https://al-arbalshawarma.com/"),
+      "https://al-arbalshawarma.com/menu",
+    );
+  });
+
+  it("falls back to the origin when canonical is empty", () => {
+    assert.equal(
+      resolveCanonicalUrl(null, "https://al-arbalshawarma.com"),
+      "https://al-arbalshawarma.com/",
+    );
+  });
+
+  it("returns the relative value as-is when no origin is configured", () => {
+    assert.equal(resolveCanonicalUrl("/", ""), "/");
+  });
 });
 
 describe("buildHomeSeoHead", () => {
@@ -148,6 +185,20 @@ describe("buildHomeSeoHead", () => {
   it("omits keywords meta when keywords is null", () => {
     const m = buildHomeSeoHead({ ...seo, keywords: null }, SITE, "").meta;
     assert.ok(!m.some((x) => x.name === "keywords"));
+  });
+
+  it("emits absolute canonical, og:url and og:locale when a baseUrl is provided", () => {
+    const h = buildHomeSeoHead(seo, SITE, "", "https://al-arbalshawarma.com");
+    assert.deepEqual(h.links, [{ rel: "canonical", href: "https://al-arbalshawarma.com/" }]);
+    assert.ok(
+      h.meta.some((x) => x.property === "og:url" && x.content === "https://al-arbalshawarma.com/"),
+    );
+    assert.ok(h.meta.some((x) => x.property === "og:locale" && x.content === "en_PK"));
+  });
+
+  it("omits og:url when no absolute canonical is available", () => {
+    const m = buildHomeSeoHead(seo, SITE, "").meta;
+    assert.ok(!m.some((x) => x.property === "og:url"));
   });
 
   it("produces identical head output for identical inputs (SSR/hydration-safe)", () => {

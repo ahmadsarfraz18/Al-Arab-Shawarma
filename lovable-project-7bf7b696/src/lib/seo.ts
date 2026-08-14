@@ -72,6 +72,27 @@ export function robotsContent(index: boolean, follow: boolean): string {
   return `${index ? "index" : "noindex"}, ${follow ? "follow" : "nofollow"}`;
 }
 
+function isAbsoluteUrl(value: string): boolean {
+  return /^https?:\/\//i.test(value);
+}
+
+/**
+ * Make a canonical URL absolute. The stored value may be a full URL, a
+ * path like "/", or null. Absolute URLs pass through untouched; relative ones
+ * are resolved against the configured site origin. Without an origin the input
+ * is returned as-is so existing behaviour (and the SeoSettings row) is never
+ * silently rewritten.
+ */
+export function resolveCanonicalUrl(canonical: string | null, baseUrl: string): string {
+  const trimmed = (canonical ?? "").trim();
+  if (isAbsoluteUrl(trimmed)) return trimmed;
+  const origin = baseUrl.trim().replace(/\/+$/, "");
+  if (!origin) return trimmed === "" ? "/" : trimmed;
+  if (trimmed === "" || trimmed === "/") return `${origin}/`;
+  if (trimmed.startsWith("/")) return `${origin}${trimmed}`;
+  return `${origin}/${trimmed}`;
+}
+
 /**
  * Split a full address line like "Main Sharfabad Signal, Karachi, Pakistan"
  * into schema.org PostalAddress parts. Deterministic and derived only from the
@@ -139,12 +160,13 @@ export function buildRestaurantJsonLd(
   seo: PublicSeoSettings,
   site: SeoSiteInfo,
   ldOpeningHours: string,
+  baseUrl: string = "",
 ): Record<string, unknown> {
   const base = seo.jsonLd ?? {};
   const contact = site.contact;
   const addr = parseAddress(contact.address);
-  const canonical = seo.canonicalUrl ?? "/";
-  const url = /^https?:\/\//.test(canonical) ? canonical : null;
+  const canonical = resolveCanonicalUrl(seo.canonicalUrl, baseUrl);
+  const url = isAbsoluteUrl(canonical) ? canonical : null;
   const sameAs = site.socialLinks
     .map((l) => (l.url ?? "").trim())
     .filter((u) => u !== "" && u !== "#");
@@ -207,12 +229,13 @@ export function buildHomeSeoHead(
   seo: PublicSeoSettings,
   site: SeoSiteInfo,
   ldOpeningHours: string,
+  baseUrl: string = "",
 ): SeoHeadResult {
   const title = seo.title;
   const description = seo.description;
   const ogTitle = seo.ogTitle ?? title;
   const ogDescription = seo.ogDescription ?? description;
-  const canonical = seo.canonicalUrl ?? "/";
+  const canonical = resolveCanonicalUrl(seo.canonicalUrl, baseUrl);
   const ogImage = seo.ogImageUrl;
 
   const meta: Array<Record<string, unknown>> = [
@@ -221,7 +244,9 @@ export function buildHomeSeoHead(
     ...(seo.keywords ? [{ name: "keywords", content: seo.keywords }] : []),
     { name: "robots", content: robotsContent(seo.robotsIndex, seo.robotsFollow) },
     { property: "og:type", content: "website" },
+    { property: "og:locale", content: "en_PK" },
     { property: "og:site_name", content: site.contact.restaurantName },
+    ...(isAbsoluteUrl(canonical) ? [{ property: "og:url", content: canonical }] : []),
     { property: "og:title", content: ogTitle },
     { property: "og:description", content: ogDescription },
     ...(ogImage ? [{ property: "og:image", content: ogImage }] : []),
@@ -238,7 +263,7 @@ export function buildHomeSeoHead(
     scripts: [
       {
         type: "application/ld+json",
-        children: JSON.stringify(buildRestaurantJsonLd(seo, site, ldOpeningHours)),
+        children: JSON.stringify(buildRestaurantJsonLd(seo, site, ldOpeningHours, baseUrl)),
       },
     ],
   };

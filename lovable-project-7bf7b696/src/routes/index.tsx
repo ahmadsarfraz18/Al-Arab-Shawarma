@@ -83,6 +83,7 @@ import {
 import { buildOrderMessage } from "@/lib/order-message";
 import { buildThemeCss } from "@/lib/theme";
 import { buildHomeSeoHead, FALLBACK_SEO } from "@/lib/seo";
+import { getSiteBaseUrl } from "@/lib/site-url";
 
 import { Sheet, SheetContent, SheetClose, SheetTitle } from "@/components/ui/sheet";
 import {
@@ -187,11 +188,12 @@ export const Route = createFileRoute("/")({
       getPublicSiteContent(),
       getPublicSeoSettings(),
     ]);
-    return { settings, content, seo };
+    return { settings, content, seo, baseUrl: getSiteBaseUrl() };
   },
   head: ({ loaderData }) => {
     const settings = loaderData?.settings;
     const seo = loaderData?.seo ?? FALLBACK_SEO;
+    const baseUrl = loaderData?.baseUrl ?? "";
     const restaurant = settings?.openingHours.restaurant ?? FALLBACK_OPENING_HOURS.restaurant;
     const ldOpeningHours = buildOpeningHoursLd(restaurant);
     const themeCss = buildThemeCss(settings?.theme);
@@ -207,6 +209,7 @@ export const Route = createFileRoute("/")({
         socialLinks: settings?.socialLinks ?? [],
       },
       ldOpeningHours,
+      baseUrl,
     );
 
     return {

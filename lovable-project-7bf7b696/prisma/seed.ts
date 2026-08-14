@@ -6,6 +6,10 @@
 // from prisma/seed-data.ts.
 //
 // Run with:  npx prisma db seed
+//
+// The admin password is read from the ADMIN_PASSWORD environment variable.
+// It must NEVER be hardcoded in this repository. The seed fails fast with a
+// clear error if ADMIN_PASSWORD is not set.
 // -----------------------------------------------------------------------------
 
 import { PrismaClient } from "@prisma/client";
@@ -13,6 +17,18 @@ import { randomBytes, scryptSync } from "node:crypto";
 import { seedData } from "./seed-data";
 
 const prisma = new PrismaClient();
+
+function requireAdminPassword(): string {
+  const password = process.env.ADMIN_PASSWORD;
+  if (!password || password.trim().length === 0) {
+    throw new Error(
+      "ADMIN_PASSWORD environment variable is required to seed the admin user. " +
+        "Set it before running `npx prisma db seed`. " +
+        'Example (PowerShell): $env:ADMIN_PASSWORD="<strong-password>"; npx prisma db seed',
+    );
+  }
+  return password;
+}
 
 function slugify(input: string): string {
   return input
@@ -58,11 +74,12 @@ async function main() {
   await prisma.user.deleteMany();
 
   console.log("Seeding admin user…");
+  const adminPassword = requireAdminPassword();
   const user = await prisma.user.create({
     data: {
       name: seedData.user.name,
       email: seedData.user.email,
-      passwordHash: hashPassword(seedData.user.password),
+      passwordHash: hashPassword(adminPassword),
     },
   });
 
