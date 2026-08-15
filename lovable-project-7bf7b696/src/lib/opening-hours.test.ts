@@ -9,6 +9,7 @@ import {
   hoursClose,
   hoursFrequencyLabel,
   hoursRange,
+  isOpenNow,
   type OpeningHourLike,
 } from "./opening-hours";
 
@@ -99,6 +100,51 @@ describe("dayRangeLabel", () => {
 
   it("wraps Saturday into Sunday", () => {
     assert.equal(dayRangeLabel([5, 6, 0]), "Fri–Sun");
+  });
+});
+
+describe("isOpenNow", () => {
+  // Helper: build a Date in Karachi wall time (UTC+5).
+  const karachiDate = (dayOfWeek: number, hhmm: string): Date => {
+    const [h, m] = hhmm.split(":").map(Number);
+    // 2026-08-02 is a Sunday in UTC; the Date is stored in UTC so the
+    // Karachi-shifted wall clock lands on the requested weekday + time.
+    const epoch = Date.UTC(2026, 7, 2) - 5 * 3600 * 1000 + dayOfWeek * 86400 * 1000;
+    return new Date(epoch + h * 3600 * 1000 + m * 60 * 1000);
+  };
+
+  const overnight = slots("restaurant", "16:00", "04:00"); // opens 4 PM, closes 4 AM next day
+  const sameDay = slots("restaurant", "11:00", "23:00");
+
+  it("is open before midnight within an overnight slot", () => {
+    assert.equal(isOpenNow(overnight, karachiDate(1, "21:30")), true);
+  });
+
+  it("is closed before the overnight slot opens", () => {
+    assert.equal(isOpenNow(overnight, karachiDate(1, "10:00")), false);
+  });
+
+  it("stays open past midnight into the next day", () => {
+    assert.equal(isOpenNow(overnight, karachiDate(2, "01:30")), true);
+  });
+
+  it("closes after the overnight window ends", () => {
+    assert.equal(isOpenNow(overnight, karachiDate(2, "05:00")), false);
+  });
+
+  it("handles same-day slots with a closing time", () => {
+    assert.equal(isOpenNow(sameDay, karachiDate(3, "12:00")), true);
+    assert.equal(isOpenNow(sameDay, karachiDate(3, "23:30")), false);
+  });
+
+  it("respects per-day closed flags", () => {
+    const closedSunday = slots("restaurant", "16:00", "04:00", ALL_DAYS, [0]);
+    assert.equal(isOpenNow(closedSunday, karachiDate(0, "20:00")), false);
+    assert.equal(isOpenNow(closedSunday, karachiDate(1, "20:00")), true);
+  });
+
+  it("returns false for an empty set", () => {
+    assert.equal(isOpenNow([]), false);
   });
 });
 

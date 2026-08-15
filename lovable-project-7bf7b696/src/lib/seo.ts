@@ -263,7 +263,13 @@ export function buildHomeSeoHead(
     scripts: [
       {
         type: "application/ld+json",
-        children: JSON.stringify(buildRestaurantJsonLd(seo, site, ldOpeningHours, baseUrl)),
+        // Escape "<" so a value such as "</script>" can never terminate the
+        // script element mid-document during SSR. \u003c is valid JSON and is
+        // decoded back to "<" by JSON-LD parsers.
+        children: JSON.stringify(buildRestaurantJsonLd(seo, site, ldOpeningHours, baseUrl)).replace(
+          /</g,
+          "\\u003c",
+        ),
       },
     ],
   };

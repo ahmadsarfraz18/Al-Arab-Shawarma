@@ -673,7 +673,6 @@ export const updateOpeningHours = createServerFn({ method: "POST" })
     const session = await requireSession();
 
     const existing = await prisma.openingHours.findMany();
-    if (existing.length === 0) throw new Error("Opening hours not found");
 
     const changed: string[] = [];
     for (const item of data.items) {

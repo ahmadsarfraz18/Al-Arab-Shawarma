@@ -64,6 +64,51 @@ export function hoursClose(slots: OpeningHourLike[], long = false): string {
   return f(open[0].closeTime);
 }
 
+/** "HH:mm" -> minutes since midnight. */
+function minutesOfDay(hhmm: string): number {
+  const [h, m] = hhmm.split(":").map(Number);
+  return h * 60 + m;
+}
+
+// Karachi is UTC+5 with no DST. The table stores wall-clock times in Pakistan
+// local time, so convert "now" to Karachi wall time (via a UTC-shifted Date)
+// before comparing. This is deterministic and dependency-free.
+const KARACHI_OFFSET_MS = 5 * 60 * 60 * 1000;
+
+function karachiWallTime(now: Date): { dayOfWeek: number; minutes: number } {
+  const t = new Date(now.getTime() + KARACHI_OFFSET_MS);
+  return { dayOfWeek: t.getUTCDay(), minutes: t.getUTCHours() * 60 + t.getUTCMinutes() };
+}
+
+function slotOpenAt(slot: OpeningHourLike, dayOfWeek: number, minutes: number): boolean {
+  if (slot.isClosed) return false;
+  const open = minutesOfDay(slot.openTime);
+  const close = minutesOfDay(slot.closeTime);
+  const overnight = close <= open;
+  if (slot.dayOfWeek === dayOfWeek) {
+    // Overnight slot (16:00-04:00): open from openTime until midnight today…
+    if (overnight) return minutes >= open;
+    // Same-day slot (11:00-23:00): open within the window.
+    return minutes >= open && minutes < close;
+  }
+  // …and continues past midnight into the next day until closeTime.
+  if (overnight && slot.dayOfWeek === wrapDay(dayOfWeek - 1)) {
+    return minutes < close;
+  }
+  return false;
+}
+
+/**
+ * Whether the restaurant is open right now (in Karachi local time), given the
+ * day's slots. Handles overnight slots that cross midnight. Used only for
+ * client-side "Open now / Closed now" badges — never rendered on the server so
+ * hydration stays deterministic.
+ */
+export function isOpenNow(slots: OpeningHourLike[], now: Date = new Date()): boolean {
+  const { dayOfWeek, minutes } = karachiWallTime(now);
+  return slots.some((slot) => slotOpenAt(slot, dayOfWeek, minutes));
+}
+
 /** "Daily", a day-range label like "Mon–Fri", or "" when everything is closed. */
 export function hoursFrequencyLabel(slots: OpeningHourLike[]): string {
   const open = openSlots(slots);

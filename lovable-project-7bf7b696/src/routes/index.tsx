@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import heroImg from "@/assets/hero-shawarma.jpg";
 import platterImg from "@/assets/platter.jfif";
 import falafelPlatterImg from "@/assets/falafel-platter.jfif";
@@ -86,6 +86,7 @@ import {
   hoursClose,
   hoursFrequencyLabel,
   hoursRange,
+  isOpenNow,
 } from "@/lib/opening-hours";
 import { buildOrderMessage } from "@/lib/order-message";
 import { buildThemeCss } from "@/lib/theme";
@@ -842,7 +843,7 @@ function fmt(n: number) {
 
 function lineUnitPrice(item: Item, size?: string): number {
   if (!item.sizes) return item.price;
-  return item.sizes.find((s) => s.label === size)?.price ?? item.price;
+  return item.sizes.find((s) => s.label === size)?.price ?? item.sizes[0]?.price ?? item.price;
 }
 
 const formSchema = z.object({
@@ -872,6 +873,9 @@ function Home() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
   const [ordering, setOrdering] = useState(false);
+  // Client-only "open right now" indicator (Pakistan time). null during SSR /
+  // first paint so hydration output is identical to the server render.
+  const [openNow, setOpenNow] = useState<boolean | null>(null);
 
   // Serve the menu from the database so admin changes reflect publicly.
   // Falls back to the built-in MENU while loading or if the DB is unreachable.
@@ -963,6 +967,13 @@ function Home() {
     ? `Delivery till ${hoursClose(deliveryHours, false)}`
     : "Delivery unavailable";
 
+  useEffect(() => {
+    const refresh = () => setOpenNow(isOpenNow(restaurantHours));
+    refresh();
+    const id = setInterval(refresh, 60_000);
+    return () => clearInterval(id);
+  }, [restaurantHours]);
+
   const menuItems: Item[] = useMemo(() => {
     const live = liveMenuQuery.data;
     if (!live || live.categories.length === 0) return MENU;
@@ -1003,24 +1014,35 @@ function Home() {
   }, []);
 
   const copy = (text: string, label: string) => {
-    navigator.clipboard?.writeText(text).then(() => {
+    const done = () => {
       setCopied(label);
       setTimeout(() => setCopied(null), 1800);
-    });
+    };
+    const promise = navigator.clipboard?.writeText(text);
+    if (promise) {
+      promise.then(done);
+    } else {
+      done();
+    }
   };
 
-  const lines: CartLine[] = useMemo(
-    () =>
-      Object.entries(cart)
-        .map(([key, qty]) => {
-          const sep = key.indexOf("|");
-          const id = sep === -1 ? key : key.slice(0, sep);
-          const size = sep === -1 ? undefined : key.slice(sep + 1);
-          return { key, item: menuItems.find((m) => m.id === id)!, size, qty };
-        })
-        .filter((l) => l.item),
-    [cart, menuItems],
+  const resolveItem = useCallback(
+    (id: string): Item | undefined =>
+      menuItems.find((m) => m.id === id) ?? MENU.find((m) => m.id === id),
+    [menuItems],
   );
+
+  const lines: CartLine[] = useMemo(() => {
+    const result: CartLine[] = [];
+    for (const [key, qty] of Object.entries(cart)) {
+      const sep = key.indexOf("|");
+      const id = sep === -1 ? key : key.slice(0, sep);
+      const size = sep === -1 ? undefined : key.slice(sep + 1);
+      const item = resolveItem(id);
+      if (item) result.push({ key, item, size, qty });
+    }
+    return result;
+  }, [cart, resolveItem]);
   const itemCount = lines.reduce((a, l) => a + l.qty, 0);
   const subtotal = lines.reduce((a, l) => a + lineUnitPrice(l.item, l.size) * l.qty, 0);
   const delivery = selectedArea?.charge ?? 0;
@@ -1091,8 +1113,21 @@ function Home() {
       paymentLabel: paymentLabel[payment],
       paymentNote: payNote,
     });
-    window.open(`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(msg)}`, "_blank");
-    setOrdering(false);
+    const url = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(msg)}`;
+    let opened = false;
+    try {
+      opened = !!window.open(url, "_blank", "noopener,noreferrer");
+    } catch {
+      opened = false;
+    }
+    if (!opened) {
+      setOrdering(false);
+      toast.warning(
+        "Pop-up blocked by the browser — please allow pop-ups for WhatsApp, or place the order manually.",
+      );
+    } else {
+      setOrdering(false);
+    }
     setConfirmOpen(true);
   };
 
@@ -1231,6 +1266,16 @@ function Home() {
 
             <div className="mt-4 sm:mt-6 flex flex-wrap gap-3 text-xs sm:text-sm text-white/85">
               <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 backdrop-blur">
+                <span
+                  aria-hidden
+                  className={`h-2 w-2 rounded-full ${
+                    openNow === null
+                      ? "bg-white/40"
+                      : openNow
+                        ? "bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.9)]"
+                        : "bg-red-400 shadow-[0_0_6px_rgba(248,113,113,0.9)]"
+                  }`}
+                />
                 <ClockIcon className="h-3.5 w-3.5 text-gold" /> {heroOpenLabel}
               </span>
               <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 backdrop-blur">

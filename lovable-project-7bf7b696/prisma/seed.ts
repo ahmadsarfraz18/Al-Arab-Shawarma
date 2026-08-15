@@ -16,6 +16,18 @@ import { PrismaClient } from "@prisma/client";
 import { randomBytes, scryptSync } from "node:crypto";
 import { seedData } from "./seed-data";
 
+// Better Auth signs the owner in through the `accounts` table: signIn/email
+// (src/lib/auth/auth.server.ts -> better-auth) looks up a row where
+// providerId = "credential" and verifies the password against its `password`
+// column. Without that row the login always fails with
+// "Invalid email or password", even though users.password_hash is set.
+// See node_modules/better-auth/dist/api/routes/sign-in.mjs.
+const ACCOUNT_ID_LENGTH = 24;
+
+function randomAccountId(): string {
+  return randomBytes(ACCOUNT_ID_LENGTH).toString("base64url");
+}
+
 const prisma = new PrismaClient();
 
 function requireAdminPassword(): string {
@@ -71,15 +83,30 @@ async function main() {
   await prisma.contactInfo.deleteMany();
   await prisma.activityLog.deleteMany();
   await prisma.media.deleteMany();
+  await prisma.verification.deleteMany();
   await prisma.user.deleteMany();
 
   console.log("Seeding admin user…");
   const adminPassword = requireAdminPassword();
+  const passwordHash = hashPassword(adminPassword);
   const user = await prisma.user.create({
     data: {
       name: seedData.user.name,
       email: seedData.user.email,
-      passwordHash: hashPassword(adminPassword),
+      passwordHash,
+    },
+  });
+
+  // Credential account required by Better Auth for email+password sign-in.
+  // accountId mirrors Better Auth's own convention (the user's id); the
+  // password is stored only as the same scrypt hash as password_hash.
+  await prisma.account.create({
+    data: {
+      id: randomAccountId(),
+      userId: user.id,
+      accountId: user.id,
+      providerId: "credential",
+      password: passwordHash,
     },
   });
 
