@@ -77,6 +77,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
+      { name: "google-site-verification", content: "google68258b1c3945262f" },
       { title: "Al-Arab Shawarma — Authentic Arabic Shawarma in Karachi" },
       {
         name: "description",
