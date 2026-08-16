@@ -1984,6 +1984,15 @@ function Home() {
         </div>
         <div className="mt-8 lg:mt-12 border-t border-border pt-6 text-center text-xs text-muted-foreground space-y-1.5">
           <div>© {new Date().getFullYear()} Al-Arab Shawarma. All rights reserved.</div>
+          <div>
+            <a
+              href="/admin"
+              className="inline-flex items-center gap-1.5 text-muted-foreground/70 hover:text-brand transition-colors"
+            >
+              <ShieldCheck className="h-3 w-3" />
+              Admin Portal
+            </a>
+          </div>
           <div className="flex flex-wrap items-center justify-center gap-x-1.5 gap-y-1 px-4">
             <span>Developed with ❤️ by</span>
             <span className="font-semibold text-foreground/80">Mahar Ahmad Sarfraz</span>
