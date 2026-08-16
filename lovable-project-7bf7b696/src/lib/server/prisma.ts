@@ -18,7 +18,7 @@ function createPrismaClient() {
     url.searchParams.set("pgbouncer", "true");
   }
 
-  url.searchParams.set("connection_limit", "5");
+  url.searchParams.set("connection_limit", "1");
   url.searchParams.set("pool_timeout", "10");
 
   return new PrismaClient({
