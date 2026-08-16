@@ -2,10 +2,18 @@ import { createFileRoute } from "@tanstack/react-router";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { AlertCircle, Eye, EyeOff, Loader2, Lock, Mail, Store } from "lucide-react";
+import { AlertCircle, CheckCircle2, Eye, EyeOff, Loader2, Lock, Mail, Store } from "lucide-react";
 import { z } from "zod";
 
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -32,6 +40,12 @@ function AdminLoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  const [forgotOpen, setForgotOpen] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotBusy, setForgotBusy] = useState(false);
+  const [forgotSent, setForgotSent] = useState(false);
+  const [forgotError, setForgotError] = useState<string | null>(null);
 
   const {
     register,
@@ -64,6 +78,33 @@ function AdminLoginPage() {
       setError("Unable to sign in. Please try again.");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const onForgotSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!forgotEmail.trim()) {
+      setForgotError("Enter your admin email address.");
+      return;
+    }
+    setForgotError(null);
+    setForgotBusy(true);
+    try {
+      // Always resolves successfully (even for unknown emails) so the form
+      // doesn't reveal whether an account exists.
+      const { error: resetError } = await authClient.requestPasswordReset({
+        email: forgotEmail.trim(),
+        redirectTo: "/admin/reset-password",
+      });
+      if (resetError) {
+        setForgotError("Unable to start a reset. Please try again.");
+        return;
+      }
+      setForgotSent(true);
+    } catch {
+      setForgotError("Unable to start a reset. Please try again.");
+    } finally {
+      setForgotBusy(false);
     }
   };
 
@@ -144,7 +185,20 @@ function AdminLoginPage() {
             </div>
           </div>
 
-          <Button type="submit" size="lg" className="mt-6 w-full" disabled={submitting}>
+          <button
+            type="button"
+            onClick={() => {
+              setForgotEmail("");
+              setForgotError(null);
+              setForgotSent(false);
+              setForgotOpen(true);
+            }}
+            className="mt-4 text-xs font-medium text-muted-foreground underline-offset-4 transition-colors hover:text-brand hover:underline"
+          >
+            Forgot password?
+          </button>
+
+          <Button type="submit" size="lg" className="mt-5 w-full" disabled={submitting}>
             {submitting ? (
               <>
                 <Loader2 className="animate-spin" />
@@ -162,6 +216,87 @@ function AdminLoginPage() {
           </a>
         </p>
       </div>
+
+      <Dialog open={forgotOpen} onOpenChange={(o) => !forgotBusy && setForgotOpen(o)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Forgot password</DialogTitle>
+            <DialogDescription>
+              {forgotSent
+                ? "Reset link ready."
+                : "Enter your admin email to request a password reset."}
+            </DialogDescription>
+          </DialogHeader>
+
+          {forgotSent ? (
+            <div className="space-y-3">
+              <div
+                role="status"
+                className="flex items-start gap-2.5 rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-3.5 py-3 text-sm text-emerald-700 dark:text-emerald-400"
+              >
+                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>
+                  This site has no email service, so the one-time reset link is written to the
+                  server logs. Open the <strong>Vercel function logs</strong> and search for{" "}
+                  <code className="rounded bg-muted px-1 py-0.5 text-[0.8em]">
+                    password reset link
+                  </code>{" "}
+                  — the latest entry contains your link.
+                </span>
+              </div>
+              <ul className="list-disc space-y-1 pl-5 text-xs text-muted-foreground">
+                <li>The link is valid for one hour.</li>
+                <li>Open it in this browser to reach the reset page.</li>
+                <li>Any existing admin sessions are signed out after a reset.</li>
+              </ul>
+              <DialogFooter className="mt-4">
+                <Button className="w-full" onClick={() => setForgotOpen(false)}>
+                  Got it
+                </Button>
+              </DialogFooter>
+            </div>
+          ) : (
+            <form onSubmit={onForgotSubmit} noValidate className="space-y-4">
+              {forgotError && (
+                <div
+                  role="alert"
+                  className="flex items-start gap-2.5 rounded-xl border border-destructive/40 bg-destructive/10 px-3.5 py-3 text-sm text-destructive"
+                >
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                  {forgotError}
+                </div>
+              )}
+              <div className="space-y-2">
+                <Label htmlFor="forgot-email">Admin email</Label>
+                <Input
+                  id="forgot-email"
+                  type="email"
+                  autoComplete="email"
+                  placeholder="owner@al-arbalshawarma.com"
+                  className="h-11 bg-background"
+                  value={forgotEmail}
+                  onChange={(e) => setForgotEmail(e.target.value)}
+                />
+              </div>
+              <DialogFooter>
+                <Button type="button" variant="ghost" onClick={() => setForgotOpen(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={forgotBusy}>
+                  {forgotBusy ? (
+                    <>
+                      <Loader2 className="animate-spin" />
+                      Requesting…
+                    </>
+                  ) : (
+                    "Request reset link"
+                  )}
+                </Button>
+              </DialogFooter>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -2,12 +2,17 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Fragment, useMemo, useState, type ReactNode } from "react";
 import {
+  AlertCircle,
   Building2,
   Check,
+  CheckCircle2,
   Clock,
+  Eye,
+  EyeOff,
   Facebook,
   Globe,
   Instagram,
+  KeyRound,
   Loader,
   MapPin,
   MessageCircle,
@@ -16,10 +21,12 @@ import {
   Plus,
   Save,
   Share2,
+  ShieldCheck,
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { authClient } from "@/lib/auth/auth-client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -314,6 +321,8 @@ function SettingsPage() {
           />
         </div>
       ) : null}
+
+      <ChangePasswordCard />
     </div>
   );
 }
@@ -1703,6 +1712,193 @@ function SeoSettingsCard({
               </span>
             )}
             <SaveButton dirty={dirty} busy={busy} onSave={handleSubmit} label="Save SEO" />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function ChangePasswordCard() {
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showCurrent, setShowCurrent] = useState(false);
+  const [showNew, setShowNew] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+
+  const newLengthError = newPassword.length > 0 && newPassword.length < 8;
+  const matchError =
+    confirmPassword.length > 0 && newPassword.length > 0 && confirmPassword !== newPassword;
+  const canSubmit = currentPassword.length > 0 && newPassword.length >= 8 && !matchError;
+
+  const handleSubmit = async () => {
+    if (newPassword.length < 8) {
+      setError("New password must be at least 8 characters.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setError("New passwords do not match.");
+      return;
+    }
+    setError(null);
+    setSaved(false);
+    setBusy(true);
+    try {
+      const { error: changeError } = await authClient.changePassword({
+        currentPassword,
+        newPassword,
+        revokeOtherSessions: true,
+      });
+      if (changeError) {
+        setError(
+          changeError.status === 400
+            ? "Current password is incorrect, or the new password is too weak."
+            : "Unable to change the password. Please try again.",
+        );
+        return;
+      }
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setSaved(true);
+      toast.success("Password changed. Other sessions were signed out.");
+    } catch {
+      setError("Unable to change the password. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Card className="shadow-card-soft">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <ShieldCheck className="h-5 w-5 text-brand" />
+          Change Password
+        </CardTitle>
+        <CardDescription>
+          Update the password for your admin account. Changing it signs out every other session,
+          including this one — you'll be sent a fresh session automatically.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {error && (
+          <div
+            role="alert"
+            className="mb-4 flex items-start gap-2.5 rounded-xl border border-destructive/40 bg-destructive/10 px-3.5 py-3 text-sm text-destructive"
+          >
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+            {error}
+          </div>
+        )}
+        {saved && (
+          <div
+            role="status"
+            className="mb-4 flex items-start gap-2.5 rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-3.5 py-3 text-sm text-emerald-700 dark:text-emerald-400"
+          >
+            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+            Password changed successfully.
+          </div>
+        )}
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field id="current-password" label="Current password" className="sm:col-span-2">
+            <div className="relative">
+              <KeyRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                id="current-password"
+                type={showCurrent ? "text" : "password"}
+                autoComplete="current-password"
+                className="h-11 pl-10 pr-10 bg-background"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+              />
+              <button
+                type="button"
+                onClick={() => setShowCurrent((v) => !v)}
+                aria-label={showCurrent ? "Hide current password" : "Show current password"}
+                aria-pressed={showCurrent}
+                className="absolute right-2.5 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              >
+                {showCurrent ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+          </Field>
+
+          <Field
+            id="new-password"
+            label="New password"
+            hint="At least 8 characters."
+            error={newLengthError ? "Use at least 8 characters." : undefined}
+          >
+            <div className="relative">
+              <KeyRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                id="new-password"
+                type={showNew ? "text" : "password"}
+                autoComplete="new-password"
+                className={`h-11 pl-10 pr-10 bg-background ${newLengthError ? "border-destructive" : ""}`}
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+              />
+              <button
+                type="button"
+                onClick={() => setShowNew((v) => !v)}
+                aria-label={showNew ? "Hide new password" : "Show new password"}
+                aria-pressed={showNew}
+                className="absolute right-2.5 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              >
+                {showNew ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+          </Field>
+
+          <Field
+            id="confirm-password"
+            label="Confirm new password"
+            error={matchError ? "Passwords do not match." : undefined}
+          >
+            <div className="relative">
+              <KeyRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                id="confirm-password"
+                type={showConfirm ? "text" : "password"}
+                autoComplete="new-password"
+                className={`h-11 pl-10 pr-10 bg-background ${matchError ? "border-destructive" : ""}`}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirm((v) => !v)}
+                aria-label={showConfirm ? "Hide confirmation" : "Show confirmation"}
+                aria-pressed={showConfirm}
+                className="absolute right-2.5 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              >
+                {showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+          </Field>
+        </div>
+
+        <div className="mt-5 flex flex-col gap-3 border-t border-border/60 pt-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-xs text-muted-foreground">
+            Signing out other sessions protects your account if your password was shared or leaked.
+          </p>
+          <div className="flex items-center gap-3">
+            {saved && (
+              <span className="flex items-center gap-1 text-xs font-medium text-emerald-600">
+                <Check className="h-3.5 w-3.5" /> Changed
+              </span>
+            )}
+            <Button onClick={() => void handleSubmit()} disabled={!canSubmit || busy}>
+              {busy ? <Loader className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              {busy ? "Changing…" : "Change Password"}
+            </Button>
           </div>
         </div>
       </CardContent>

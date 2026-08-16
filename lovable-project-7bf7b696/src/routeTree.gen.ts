@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as RobotsDottxtRouteImport } from './routes/robots[.]txt'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AdminResetPasswordRouteImport } from './routes/admin/reset-password'
 import { Route as AdminLayoutRouteRouteImport } from './routes/admin/_layout/route'
 import { Route as AdminLayoutIndexRouteImport } from './routes/admin/_layout/index'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
@@ -35,6 +36,11 @@ const RobotsDottxtRoute = RobotsDottxtRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminResetPasswordRoute = AdminResetPasswordRouteImport.update({
+  id: '/admin/reset-password',
+  path: '/admin/reset-password',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminLayoutRouteRoute = AdminLayoutRouteRouteImport.update({
@@ -88,6 +94,7 @@ export interface FileRoutesByFullPath {
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/admin': typeof AdminLayoutRouteRouteWithChildren
+  '/admin/reset-password': typeof AdminResetPasswordRoute
   '/admin/categories': typeof AdminLayoutCategoriesRoute
   '/admin/delivery': typeof AdminLayoutDeliveryRoute
   '/admin/homepage': typeof AdminLayoutHomepageRoute
@@ -101,6 +108,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/admin/reset-password': typeof AdminResetPasswordRoute
   '/admin/categories': typeof AdminLayoutCategoriesRoute
   '/admin/delivery': typeof AdminLayoutDeliveryRoute
   '/admin/homepage': typeof AdminLayoutHomepageRoute
@@ -116,6 +124,7 @@ export interface FileRoutesById {
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/admin/_layout': typeof AdminLayoutRouteRouteWithChildren
+  '/admin/reset-password': typeof AdminResetPasswordRoute
   '/admin/_layout/categories': typeof AdminLayoutCategoriesRoute
   '/admin/_layout/delivery': typeof AdminLayoutDeliveryRoute
   '/admin/_layout/homepage': typeof AdminLayoutHomepageRoute
@@ -132,6 +141,7 @@ export interface FileRouteTypes {
     | '/robots.txt'
     | '/sitemap.xml'
     | '/admin'
+    | '/admin/reset-password'
     | '/admin/categories'
     | '/admin/delivery'
     | '/admin/homepage'
@@ -145,6 +155,7 @@ export interface FileRouteTypes {
     | '/'
     | '/robots.txt'
     | '/sitemap.xml'
+    | '/admin/reset-password'
     | '/admin/categories'
     | '/admin/delivery'
     | '/admin/homepage'
@@ -159,6 +170,7 @@ export interface FileRouteTypes {
     | '/robots.txt'
     | '/sitemap.xml'
     | '/admin/_layout'
+    | '/admin/reset-password'
     | '/admin/_layout/categories'
     | '/admin/_layout/delivery'
     | '/admin/_layout/homepage'
@@ -174,6 +186,7 @@ export interface RootRouteChildren {
   RobotsDottxtRoute: typeof RobotsDottxtRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   AdminLayoutRouteRoute: typeof AdminLayoutRouteRouteWithChildren
+  AdminResetPasswordRoute: typeof AdminResetPasswordRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
 }
 
@@ -198,6 +211,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/reset-password': {
+      id: '/admin/reset-password'
+      path: '/admin/reset-password'
+      fullPath: '/admin/reset-password'
+      preLoaderRoute: typeof AdminResetPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/_layout': {
@@ -294,6 +314,7 @@ const rootRouteChildren: RootRouteChildren = {
   RobotsDottxtRoute: RobotsDottxtRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   AdminLayoutRouteRoute: AdminLayoutRouteRouteWithChildren,
+  AdminResetPasswordRoute: AdminResetPasswordRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
 }
 export const routeTree = rootRouteImport

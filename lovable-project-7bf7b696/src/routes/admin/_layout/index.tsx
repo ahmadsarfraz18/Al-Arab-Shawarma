@@ -38,6 +38,8 @@ const ACTION_LABELS: Record<string, string> = {
   update: "Updated",
   delete: "Deleted",
   status_update: "Changed status of",
+  request_password_reset: "Password reset link requested for",
+  password_reset: "Password reset completed for",
 };
 
 const ENTITY_LABELS: Record<string, string> = {

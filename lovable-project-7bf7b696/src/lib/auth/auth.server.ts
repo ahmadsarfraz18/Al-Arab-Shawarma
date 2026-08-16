@@ -31,6 +31,33 @@ export const auth = betterAuth({
       hash: hashPassword,
       verify: verifyPassword,
     },
+    // No email/SMTP provider is configured on this single-owner site, so the
+    // one-time reset link is surfaced to the server console (e.g. Vercel
+    // function logs) and recorded in the activity log instead of emailed.
+    sendResetPassword: async ({ user, url, token }) => {
+      const origin = new URL(url).origin;
+      const resetUrl = `${origin}/admin/reset-password?token=${token}`;
+      console.info(`[auth] password reset link for ${user.email}: ${resetUrl}`);
+      try {
+        await prisma.activityLog.create({
+          data: {
+            userId: user.id,
+            action: "request_password_reset",
+            entityType: "auth",
+            entityId: user.id,
+            details: { resetUrl },
+          },
+        });
+      } catch (error) {
+        console.error("[auth] failed to record reset link in activity log", error);
+      }
+    },
+    onPasswordReset: async ({ user }) => {
+      console.info(`[auth] password reset completed for ${user.email}`);
+    },
+    // Revoke every existing session once the password is reset, so a leaked
+    // link can never keep a stale session alive.
+    revokeSessionsOnPasswordReset: true,
   },
 
   session: {
