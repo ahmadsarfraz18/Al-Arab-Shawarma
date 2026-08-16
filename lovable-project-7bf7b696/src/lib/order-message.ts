@@ -23,12 +23,15 @@ export type OrderMessageParams = {
   delivery: number;
   grand: number;
   paymentLabel: string;
+  /** Transaction ID / reference supplied by the customer for advance payments. */
+  transactionRef?: string;
   /** Extra line appended after the payment method (e.g. payment screenshot note). */
   paymentNote?: string;
 };
 
 export function buildOrderMessage(p: OrderMessageParams): string {
   const note = p.notes ? `*Notes:* ${p.notes}\n` : "";
+  const txnRef = p.transactionRef ? `\n*Transaction Ref:* ${p.transactionRef}` : "";
   const payNote = p.paymentNote ?? "";
   return (
     "*Al-Arab Shawarma — New Order*\n\n" +
@@ -41,7 +44,7 @@ export function buildOrderMessage(p: OrderMessageParams): string {
     `*Subtotal:* ${formatPKR(p.subtotal)}\n` +
     `*Delivery:* ${formatPKR(p.delivery)}\n` +
     `*Grand Total:* ${formatPKR(p.grand)}\n\n` +
-    `*Payment Method:* ${p.paymentLabel}${payNote}\n\n` +
+    `*Payment Method:* ${p.paymentLabel}${txnRef}${payNote}\n\n` +
     "Thank you!"
   );
 }

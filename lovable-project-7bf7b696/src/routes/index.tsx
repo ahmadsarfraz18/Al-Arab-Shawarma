@@ -869,6 +869,7 @@ function Home() {
   } | null>(null);
   const [areaOpen, setAreaOpen] = useState(false);
   const [payment, setPayment] = useState<PaymentMethod>("cod");
+  const [txnRef, setTxnRef] = useState("");
   const [showTop, setShowTop] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
@@ -1089,6 +1090,10 @@ function Home() {
       toast.error("Your cart is empty");
       return;
     }
+    if (payment !== "cod" && !txnRef.trim()) {
+      toast.error("Please enter the transaction ID / reference to confirm your payment");
+      return;
+    }
     setOrdering(true);
     const itemsTxt = lines
       .map(
@@ -1111,6 +1116,7 @@ function Home() {
       delivery,
       grand,
       paymentLabel: paymentLabel[payment],
+      transactionRef: payment === "cod" ? undefined : txnRef.trim(),
       paymentNote: payNote,
     });
     const url = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(msg)}`;
@@ -1676,6 +1682,35 @@ function Home() {
                     <PaymentNote note={paymentNote} />
                   </div>
                 )}
+
+                {payment !== "cod" && (
+                  <div className="mt-6 rounded-2xl border border-brand/40 bg-brand/5 p-5">
+                    <div className="flex items-center gap-2 text-brand font-bold text-sm uppercase tracking-wider">
+                      <ShieldCheck className="h-4 w-4" /> Payment Confirmation
+                    </div>
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      After you've made the transfer, enter the transaction ID / reference shown in
+                      your payment app so we can verify the order.
+                    </p>
+                    <label className="mt-4 block">
+                      <span className="text-xs font-semibold uppercase tracking-wider text-foreground/80">
+                        Transaction ID / Reference <span className="text-destructive">*</span>
+                      </span>
+                      <input
+                        type="text"
+                        value={txnRef}
+                        onChange={(e) => setTxnRef(e.target.value)}
+                        placeholder="e.g. 1234567890 (from your payment app)"
+                        className="field mt-2"
+                        autoComplete="off"
+                      />
+                    </label>
+                    <p className="mt-3 text-xs text-muted-foreground flex items-start gap-1.5">
+                      <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brand" />
+                      Please also share the payment screenshot here on WhatsApp for verification.
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1723,7 +1758,7 @@ function Home() {
               </div>
               <button
                 onClick={handleSubmit(onOrder)}
-                disabled={ordering}
+                disabled={ordering || (payment !== "cod" && !txnRef.trim())}
                 className="mt-6 w-full inline-flex items-center justify-center gap-2 rounded-full bg-whatsapp py-4 font-bold text-white hover:scale-[1.02] transition-transform disabled:opacity-60 disabled:cursor-not-allowed shadow-2xl"
               >
                 {ordering ? (
@@ -1734,7 +1769,9 @@ function Home() {
                 {ordering ? "Sending..." : "Confirm via WhatsApp"}
               </button>
               <p className="mt-3 text-xs text-cream/60 text-center">
-                No app needed. Order confirmation via WhatsApp.
+                {payment !== "cod" && !txnRef.trim()
+                  ? "Enter your transaction ID / reference above to enable the order button."
+                  : "No app needed. Order confirmation via WhatsApp."}
               </p>
             </aside>
           </div>

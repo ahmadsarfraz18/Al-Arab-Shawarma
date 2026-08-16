@@ -734,4 +734,68 @@ describe("WhatsApp checkout payload — Area shows the exact customer block, nev
       assert.ok(!/\(Zone\b/.test(msg), `"${area.area}" message must not contain "(Zone ...)"`);
     }
   });
+
+  it("includes the transaction reference for advance payments", () => {
+    const msg = buildOrderMessage({
+      customer: "Ali",
+      phone: "0300-1234567",
+      areaLabel: "Clifton Block 5",
+      address: "House 5",
+      items: "• 1 × Chicken Shawarma — Rs. 450",
+      subtotal: 450,
+      delivery: 500,
+      grand: 950,
+      paymentLabel:
+        "Bank Transfer — Meezan Bank · Al-Arab Shawarma · IBAN PK36MEZN0000000000000000",
+      transactionRef: "TXN-2026-0816",
+      paymentNote: "\n_Please share the payment screenshot here on WhatsApp for verification._",
+    });
+    assert.ok(
+      msg.includes(
+        "*Payment Method:* Bank Transfer — Meezan Bank · Al-Arab Shawarma · IBAN PK36MEZN0000000000000000\n" +
+          "*Transaction Ref:* TXN-2026-0816\n" +
+          "_Please share the payment screenshot here on WhatsApp for verification._\n\n" +
+          "Thank you!",
+      ),
+    );
+  });
+
+  it("omits the transaction reference line for cash on delivery", () => {
+    const msg = buildOrderMessage({
+      customer: "Ali",
+      phone: "0300-1234567",
+      areaLabel: "Clifton Block 5",
+      address: "House 5",
+      items: "• 1 × Chicken Shawarma — Rs. 450",
+      subtotal: 450,
+      delivery: 500,
+      grand: 950,
+      paymentLabel: "Cash on Delivery",
+    });
+    assert.ok(
+      !msg.includes("Transaction Ref"),
+      "COD order must not contain a transaction ref line",
+    );
+    assert.equal(
+      msg,
+      [
+        "*Al-Arab Shawarma — New Order*",
+        "",
+        "*Customer:* Ali",
+        "*Phone:* 0300-1234567",
+        "*Area:* Clifton Block 5",
+        "*Address:* House 5",
+        "*Items:*",
+        "• 1 × Chicken Shawarma — Rs. 450",
+        "",
+        "*Subtotal:* Rs. 450",
+        "*Delivery:* Rs. 500",
+        "*Grand Total:* Rs. 950",
+        "",
+        "*Payment Method:* Cash on Delivery",
+        "",
+        "Thank you!",
+      ].join("\n"),
+    );
+  });
 });
