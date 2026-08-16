@@ -36,7 +36,10 @@ export function AdminEmpty({ title, hint }: { title: string; hint?: string }) {
 
 export function AdminError({ message, onRetry }: { message: string; onRetry?: () => void }) {
   return (
-    <div className="grid place-items-center rounded-xl border border-destructive/30 bg-destructive/5 px-6 py-14 text-center">
+    <div
+      role="alert"
+      className="grid place-items-center rounded-xl border border-destructive/30 bg-destructive/5 px-6 py-14 text-center"
+    >
       <span className="grid h-12 w-12 place-items-center rounded-full bg-destructive/10 text-destructive">
         <AlertTriangle className="h-6 w-6" />
       </span>

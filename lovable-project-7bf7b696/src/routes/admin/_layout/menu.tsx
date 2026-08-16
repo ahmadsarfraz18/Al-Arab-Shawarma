@@ -55,6 +55,7 @@ import {
   type ContentStatus,
   type MenuItemInput,
 } from "@/lib/admin/schemas";
+import { formatCurrency } from "@/lib/format";
 
 export const Route = createFileRoute("/admin/_layout/menu")({
   head: () => ({
@@ -67,7 +68,7 @@ export const Route = createFileRoute("/admin/_layout/menu")({
 });
 
 function fmtPrice(n: number): string {
-  return "Rs. " + n.toLocaleString("en-PK");
+  return formatCurrency(n);
 }
 
 function useDebounced(value: string, delay = 300): string {
@@ -518,21 +519,22 @@ function MenuItemFormDialog({
               </Select>
             </div>
             <div className="flex items-end pb-1">
-              <label className="flex cursor-pointer items-center gap-2 text-sm font-medium">
-                <Checkbox
-                  checked={featured}
-                  onCheckedChange={(c) => setFeatured(c === true)}
-                  aria-label="Featured"
-                />
-                <span className="flex items-center gap-1.5">
-                  {featured ? (
-                    <CheckSquare className="h-4 w-4 text-brand" />
-                  ) : (
-                    <Square className="h-4 w-4 text-muted-foreground" />
-                  )}
-                  Featured
-                </span>
-              </label>
+              <Checkbox
+                id="featured-checkbox"
+                checked={featured}
+                onCheckedChange={(c) => setFeatured(c === true)}
+              />
+              <Label
+                htmlFor="featured-checkbox"
+                className="ml-2 flex cursor-pointer items-center gap-1.5 text-sm font-medium"
+              >
+                {featured ? (
+                  <CheckSquare className="h-4 w-4 text-brand" />
+                ) : (
+                  <Square className="h-4 w-4 text-muted-foreground" />
+                )}
+                Featured
+              </Label>
             </div>
           </div>
 

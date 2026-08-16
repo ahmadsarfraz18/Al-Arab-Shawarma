@@ -849,13 +849,20 @@ function OpeningHoursCard({
                       onChange={(ev) => set(type, day, { closeTime: ev.target.value })}
                       aria-label={`${DAY_ABBR[day]} ${type} close time`}
                     />
-                    <label className="flex cursor-pointer items-center gap-2 text-xs font-medium text-muted-foreground">
+                    <div className="flex items-center gap-2">
                       <Switch
+                        id={`switch-${type}-${day}`}
                         checked={closed}
                         onCheckedChange={(v) => set(type, day, { isClosed: v })}
+                        aria-label={`${DAY_ABBR[day]} ${type} closed`}
                       />
-                      Closed
-                    </label>
+                      <Label
+                        htmlFor={`switch-${type}-${day}`}
+                        className="cursor-pointer text-xs font-medium text-muted-foreground"
+                      >
+                        Closed
+                      </Label>
+                    </div>
                     {errors[key] && (
                       <p className="col-span-4 text-xs text-destructive">{errors[key]}</p>
                     )}
@@ -1023,8 +1030,8 @@ function SocialLinksCard({
           </div>
         )}
         <p className="mt-4 text-xs text-muted-foreground">
-          {activeCount} of {links.length} link(s) active. Placeholder URLs ("#") are never shown on
-          the public website.
+          {activeCount} of {links.length} link(s) active. Placeholder URLs (&#8220;#&#8221;) are
+          never shown on the public website.
         </p>
       </CardContent>
 
@@ -1672,7 +1679,7 @@ function SeoSettingsCard({
           <Field
             id="seo-canonical"
             label="Canonical URL"
-            hint='Use "/" for the homepage or a full URL like https://example.com/.'
+            hint="Use &#8220;/&#8221; for the homepage or a full URL like https://example.com/."
             error={field("canonicalUrl")}
           >
             <Input

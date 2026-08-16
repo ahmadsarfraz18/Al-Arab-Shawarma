@@ -46,6 +46,7 @@
 }
 
 :root {
+  color-scheme: dark;
   --radius: 0.75rem;
 
   /* Premium electric green palette */
@@ -103,6 +104,7 @@
   }
   html {
     scroll-behavior: smooth;
+    scroll-padding-top: 6rem;
     overflow-x: clip;
   }
   body {
@@ -190,7 +192,7 @@
     border-color 0.2s,
     box-shadow 0.2s;
 }
-.field:focus {
+.field:focus-visible {
   border-color: var(--brand);
   box-shadow: 0 0 0 3px rgba(57, 255, 20, 0.15);
 }
@@ -206,7 +208,7 @@
   outline: none;
   transition: border-color 0.2s;
 }
-.field-dark:focus {
+.field-dark:focus-visible {
   border-color: var(--gold);
 }
 .field-dark::placeholder {
@@ -230,4 +232,27 @@
   background: linear-gradient(90deg, transparent, rgba(124, 255, 107, 0.08), transparent);
   background-size: 200% 100%;
   animation: shimmer 1.5s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .animate-float,
+  .animate-shimmer,
+  .animate-ping,
+  .animate-spin,
+  .animate-pulse,
+  .img-placeholder::after {
+    animation: none;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

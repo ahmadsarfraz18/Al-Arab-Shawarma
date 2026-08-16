@@ -92,6 +92,7 @@ import { buildOrderMessage } from "@/lib/order-message";
 import { buildThemeCss } from "@/lib/theme";
 import { buildHomeSeoHead, FALLBACK_SEO } from "@/lib/seo";
 import { getSiteBaseUrl } from "@/lib/site-url";
+import { formatCurrency } from "@/lib/format";
 
 import { Sheet, SheetContent, SheetClose, SheetTitle } from "@/components/ui/sheet";
 import {
@@ -838,7 +839,7 @@ type CartLine = { item: Item; size?: string; qty: number; key: string };
 type PaymentMethod = "cod" | "easypaisa" | "bank";
 
 function fmt(n: number) {
-  return "Rs. " + n.toLocaleString("en-PK");
+  return formatCurrency(n);
 }
 
 function lineUnitPrice(item: Item, size?: string): number {
@@ -1147,7 +1148,7 @@ function Home() {
   ];
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div id="main" className="min-h-screen bg-background text-foreground">
       <style data-theme>{buildThemeCss(theme)}</style>
       <Toaster position="top-center" richColors closeButton />
 
@@ -1386,7 +1387,7 @@ function Home() {
                 <button
                   key={c}
                   onClick={() => setCategory(c)}
-                  className={`px-4 py-2 rounded-full text-sm font-semibold border transition-all ${
+                  className={`px-4 py-2 rounded-full text-sm font-semibold border transition-colors ${
                     category === c
                       ? "bg-gradient-brand text-brand-foreground border-transparent shadow-brand"
                       : "bg-card text-foreground border-border hover:border-brand/40"
@@ -1585,7 +1586,7 @@ function Home() {
                       key={p.id}
                       type="button"
                       onClick={() => setPayment(p.id)}
-                      className={`text-left rounded-2xl p-4 border-2 transition-all ${
+                      className={`text-left rounded-2xl p-4 border-2 transition-colors ${
                         payment === p.id
                           ? "border-brand bg-brand/5 shadow-brand"
                           : "border-border hover:border-brand/40"
@@ -1766,7 +1767,7 @@ function Home() {
                 ) : (
                   <MessageCircle className="h-5 w-5" />
                 )}
-                {ordering ? "Sending..." : "Confirm via WhatsApp"}
+                {ordering ? "Sending…" : "Confirm via WhatsApp"}
               </button>
               <p className="mt-3 text-xs text-cream/60 text-center">
                 {payment !== "cod" && !txnRef.trim()
@@ -1796,7 +1797,7 @@ function Home() {
             {about.whyUsFeatures.map((f) => (
               <div
                 key={f.label}
-                className="rounded-2xl bg-card border border-border p-6 shadow-card-soft hover:shadow-brand hover:-translate-y-1 transition-all"
+                className="rounded-2xl bg-card border border-border p-6 shadow-card-soft hover:shadow-brand hover:-translate-y-1 transition-[box-shadow,transform]"
               >
                 <span className="grid h-12 w-12 place-items-center rounded-xl bg-gradient-brand text-brand-foreground shadow-brand">
                   <Icon name={f.iconKey} className="h-5 w-5" />
@@ -2084,6 +2085,7 @@ function Home() {
                       </div>
                       <button
                         onClick={() => remove(l.key)}
+                        aria-label={`Remove ${l.item.name}${l.size ? ` (${l.size})` : ""}`}
                         className="text-muted-foreground hover:text-destructive"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -2186,7 +2188,7 @@ function MenuCard({
   const qty = getQty(key);
 
   return (
-    <article className="group flex flex-col rounded-3xl bg-card border border-border shadow-card-soft overflow-hidden hover:shadow-brand hover:-translate-y-1 transition-all">
+    <article className="group flex flex-col rounded-3xl bg-card border border-border shadow-card-soft overflow-hidden hover:shadow-brand hover:-translate-y-1 transition-[box-shadow,transform]">
       <div className="relative h-48 overflow-hidden bg-muted/50">
         <img
           src={item.image}
@@ -2210,7 +2212,7 @@ function MenuCard({
               <button
                 key={s.label}
                 onClick={() => setSize(s.label)}
-                className={`rounded-full px-3 py-1.5 text-xs font-bold border transition-all ${
+                className={`rounded-full px-3 py-1.5 text-xs font-bold border transition-colors ${
                   size === s.label
                     ? "bg-gradient-brand text-brand-foreground border-transparent shadow-brand"
                     : "bg-card text-foreground border-border hover:border-brand/40"
@@ -2242,11 +2244,23 @@ function MenuCard({
 function QtyControl({ qty, onAdd, onDec }: { qty: number; onAdd: () => void; onDec: () => void }) {
   return (
     <div className="inline-flex items-center rounded-full border border-border bg-background">
-      <button onClick={onDec} className="grid h-9 w-9 place-items-center hover:text-brand">
+      <button
+        onClick={onDec}
+        type="button"
+        aria-label="Decrease quantity"
+        className="grid h-9 w-9 place-items-center hover:text-brand"
+      >
         <Minus className="h-3.5 w-3.5" />
       </button>
-      <span className="w-8 text-center font-bold">{qty}</span>
-      <button onClick={onAdd} className="grid h-9 w-9 place-items-center hover:text-brand">
+      <span className="w-8 text-center font-bold" aria-live="polite">
+        {qty}
+      </span>
+      <button
+        onClick={onAdd}
+        type="button"
+        aria-label="Increase quantity"
+        className="grid h-9 w-9 place-items-center hover:text-brand"
+      >
         <Plus className="h-3.5 w-3.5" />
       </button>
     </div>
@@ -2331,7 +2345,7 @@ function CopyRow({
       <button
         type="button"
         onClick={onCopy}
-        className={`shrink-0 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold transition-all ${
+        className={`shrink-0 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold transition-[color,background-color,transform] ${
           copied
             ? "bg-whatsapp text-white"
             : "bg-gradient-brand text-brand-foreground hover:scale-105"

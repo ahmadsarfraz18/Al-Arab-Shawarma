@@ -21,6 +21,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 import { AdminError } from "@/components/admin/state-views";
 
+import { formatNumber, formatRelativeTime } from "@/lib/format";
+
 import { getAdminOverview } from "@/lib/api/menu.functions";
 
 export const Route = createFileRoute("/admin/_layout/")({
@@ -60,13 +62,7 @@ function entityLabel(entityType: string): string {
 }
 
 function formatWhen(iso: string): string {
-  const d = new Date(iso);
-  const now = Date.now();
-  const diff = now - d.getTime();
-  if (diff < 60_000) return "just now";
-  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)} min ago`;
-  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)} hr ago`;
-  return d.toLocaleDateString("en-PK", { day: "numeric", month: "short" });
+  return formatRelativeTime(iso);
 }
 
 function StatCard({
@@ -92,7 +88,7 @@ function StatCard({
         {loading ? (
           <Skeleton className="h-8 w-16" />
         ) : (
-          <div className="font-display text-3xl font-bold">{value.toLocaleString("en-PK")}</div>
+          <div className="font-display text-3xl font-bold">{formatNumber(value)}</div>
         )}
         <p className="mt-1 text-xs text-muted-foreground">{hint}</p>
       </CardContent>

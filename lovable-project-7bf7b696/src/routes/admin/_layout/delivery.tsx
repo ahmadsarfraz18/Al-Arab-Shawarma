@@ -58,6 +58,7 @@ import {
   type DeliveryAreaInput,
   type DeliveryZoneInput,
 } from "@/lib/admin/schemas";
+import { formatCurrency } from "@/lib/format";
 
 export const Route = createFileRoute("/admin/_layout/delivery")({
   head: () => ({
@@ -73,7 +74,7 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Something went wrong";
 }
 
-const fmtRs = (n: number) => `Rs. ${n.toLocaleString("en-PK")}`;
+const fmtRs = (n: number) => formatCurrency(n);
 
 function DeliveryManagement() {
   const queryClient = useQueryClient();
@@ -614,8 +615,8 @@ function AreaFormDialog({
             />
             {errors.name && <p className="text-xs text-destructive">{errors.name}</p>}
             <p className="text-xs text-muted-foreground">
-              Use grouped ranges (e.g. &quot;Clifton Block 1-6&quot;) so every block inside resolves
-              automatically.
+              Use grouped ranges (e.g. &#8220;Clifton Block 1-6&#8221;) so every block inside
+              resolves automatically.
             </p>
           </div>
           <div className="grid gap-2">
