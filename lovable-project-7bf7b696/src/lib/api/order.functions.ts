@@ -289,7 +289,7 @@ export const updatePaymentStatus = createServerFn({ method: "POST" })
 // Admin: Dashboard Stats
 // ---------------------------------------------------------------------------
 
-export const getOrderStats = createServerFn({ method: "POST" }).handler(
+export const getOrderStats = createServerFn({ method: "GET" }).handler(
   async (): Promise<OrderStats> => {
     try {
       await requireSession();

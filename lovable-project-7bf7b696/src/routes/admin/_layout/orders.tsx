@@ -124,6 +124,8 @@ function AdminOrdersPage() {
         throw err;
       }
     },
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   });
 
   const orders = ordersQuery.data?.orders ?? [];

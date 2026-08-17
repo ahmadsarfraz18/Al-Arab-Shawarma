@@ -1126,7 +1126,8 @@ function Home() {
       console.log("[order] successfully persisted:", result.id);
     } catch (err) {
       console.error("[order] submission failed with:", err);
-      toast.warning("Order could not be saved to our system — but we will still receive your WhatsApp message.");
+      const msg = err instanceof Error ? err.message : "Unknown error";
+      toast.error(`Order could not be saved: ${msg}`);
     }
 
     // 2. Open WhatsApp

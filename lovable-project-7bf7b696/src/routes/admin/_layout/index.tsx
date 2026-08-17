@@ -123,11 +123,15 @@ function AdminDashboard() {
   const overview = useQuery({
     queryKey: ["admin", "overview"],
     queryFn: () => getAdminOverview(),
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   });
 
   const orderStats = useQuery({
     queryKey: ["admin", "order-stats"],
     queryFn: () => getOrderStats(),
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   });
 
   const stats = overview.data;
