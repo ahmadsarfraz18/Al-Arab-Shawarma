@@ -111,46 +111,62 @@ const orderFiltersSchema = z.object({
 export const createOrder = createServerFn({ method: "POST" })
   .validator(createOrderSchema)
   .handler(async ({ data }): Promise<OrderDto> => {
-    console.log("[orders] createOrder called", {
+    const payload = {
       customerName: data.customerName,
-      paymentMethod: data.paymentMethod,
-      itemCount: data.items.length,
+      customerPhone: data.customerPhone,
+      customerAddress: data.customerAddress,
+      customerNotes: data.customerNotes,
+      areaLabel: data.areaLabel,
+      deliveryCharge: data.deliveryCharge,
+      subtotal: data.subtotal,
       total: data.total,
-    });
+      paymentMethod: data.paymentMethod,
+      transactionRef: data.transactionRef,
+      itemCount: data.items.length,
+      items: data.items.map((i) => ({
+        name: i.name,
+        quantity: i.quantity,
+        unitPrice: i.unitPrice,
+        total: i.total,
+        size: i.size ?? null,
+      })),
+    };
+    console.log("[orders] createOrder payload:", JSON.stringify(payload, null, 2));
 
     try {
       const order = await prisma.order.create({
         data: {
-          customerName: data.customerName,
-          customerPhone: data.customerPhone,
-          customerAddress: data.customerAddress,
-          customerNotes: data.customerNotes,
-          areaLabel: data.areaLabel,
-          deliveryCharge: data.deliveryCharge,
-          subtotal: data.subtotal,
-          total: data.total,
-          paymentMethod: data.paymentMethod,
-          transactionRef: data.transactionRef,
+          customerName: payload.customerName,
+          customerPhone: payload.customerPhone,
+          customerAddress: payload.customerAddress,
+          customerNotes: nn(payload.customerNotes),
+          areaLabel: nn(payload.areaLabel),
+          deliveryCharge: safeNum(payload.deliveryCharge),
+          subtotal: safeNum(payload.subtotal),
+          total: safeNum(payload.total),
+          paymentMethod: payload.paymentMethod,
+          transactionRef: nn(payload.transactionRef),
           items: {
-            create: data.items.map((item) => ({
+            create: payload.items.map((item) => ({
               name: item.name,
               quantity: item.quantity,
-              unitPrice: item.unitPrice,
-              total: item.total,
-              size: item.size,
+              unitPrice: safeNum(item.unitPrice),
+              total: safeNum(item.total),
+              size: nn(item.size),
             })),
           },
         },
         include: { items: true },
       });
 
-      console.log("[orders] createOrder success:", order.id);
+      console.log("[orders] createOrder success:", order.id, "orderNumber:", order.orderNumber);
       return toOrderDto(order);
-    } catch (err) {
-      console.error("[orders] createOrder Prisma error:", err);
-      throw new Error(
-        `Failed to create order: ${err instanceof Error ? err.message : String(err)}`,
-      );
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      const code = err && typeof err === "object" && "code" in err ? (err as { code: string }).code : "unknown";
+      const meta = err && typeof err === "object" && "meta" in err ? (err as { meta: unknown }).meta : undefined;
+      console.error("[orders] createOrder FAILED:", { code, msg, meta });
+      throw new Error(`Order creation failed (${code}): ${msg}`);
     }
   });
 
@@ -312,12 +328,34 @@ export const getOrderStats = createServerFn({ method: "POST" }).handler(
 // Helpers
 // ---------------------------------------------------------------------------
 
+/** Safely coerce a value to a finite number, returning fallback if not. */
+function safeNum(v: unknown, fallback = 0): number {
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+  if (typeof v === "string") {
+    const n = Number(v);
+    if (Number.isFinite(n)) return n;
+  }
+  return fallback;
+}
+
+/** Coerce undefined to null (Prisma prefers explicit null over undefined for DB fields). */
+function nn<T>(v: T | undefined): T | null {
+  return v === undefined ? null : v;
+}
+
 function toDecimal(n: unknown): number {
   if (n == null) return 0;
-  if (typeof n === "number") return n;
-  if (typeof n === "string") return Number(n) || 0;
+  if (typeof n === "number" && Number.isFinite(n)) return n;
+  if (typeof n === "string") {
+    const v = Number(n);
+    if (Number.isFinite(v)) return v;
+  }
   if (typeof n === "object" && "toNumber" in (n as Record<string, unknown>)) {
-    return (n as { toNumber: () => number }).toNumber();
+    try {
+      return (n as { toNumber: () => number }).toNumber();
+    } catch {
+      return 0;
+    }
   }
   return 0;
 }

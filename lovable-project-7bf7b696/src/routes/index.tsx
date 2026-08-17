@@ -1098,7 +1098,7 @@ function Home() {
     }
     setOrdering(true);
 
-    // 1. Persist order to database
+    // 1. Persist order to database (non-blocking — proceed to WhatsApp either way)
     let orderId: string | null = null;
     try {
       const result = await createOrder({
@@ -1125,10 +1125,8 @@ function Home() {
       orderId = result.id;
       console.log("[order] successfully persisted:", result.id);
     } catch (err) {
-      console.error("[order] failed to save order to database:", err);
-      toast.error("Could not save your order — please try again or contact us on WhatsApp.");
-      setOrdering(false);
-      return;
+      console.error("[order] submission failed with:", err);
+      toast.warning("Order could not be saved to our system — but we will still receive your WhatsApp message.");
     }
 
     // 2. Open WhatsApp
