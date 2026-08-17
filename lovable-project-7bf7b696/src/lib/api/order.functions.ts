@@ -6,20 +6,14 @@ import { auth } from "../auth/auth.server";
 import { prisma } from "../server/prisma";
 
 // ---------------------------------------------------------------------------
-// Auth helper — wraps getSession with try-catch so a missing session
-// returns null instead of throwing.
+// Auth helper — identical pattern to menu.functions.ts (no try-catch wrapper)
 // ---------------------------------------------------------------------------
 
 async function requireSession() {
-  try {
-    const headers = await getRequestHeaders();
-    const session = await auth.api.getSession({ headers });
-    if (!session) throw new Error("Authentication required");
-    return session;
-  } catch (err) {
-    console.error("[orders] session check failed:", err);
-    throw new Error("Authentication required");
-  }
+  const headers = await getRequestHeaders();
+  const session = await auth.api.getSession({ headers });
+  if (!session) throw new Error("Authentication required");
+  return session;
 }
 
 // ---------------------------------------------------------------------------
@@ -105,231 +99,9 @@ const orderFiltersSchema = z.object({
 });
 
 // ---------------------------------------------------------------------------
-// Public: Create Order (called from checkout)
-// ---------------------------------------------------------------------------
-
-export const createOrder = createServerFn({ method: "POST" })
-  .validator(createOrderSchema)
-  .handler(async ({ data }): Promise<OrderDto> => {
-    const payload = {
-      customerName: data.customerName,
-      customerPhone: data.customerPhone,
-      customerAddress: data.customerAddress,
-      customerNotes: data.customerNotes,
-      areaLabel: data.areaLabel,
-      deliveryCharge: data.deliveryCharge,
-      subtotal: data.subtotal,
-      total: data.total,
-      paymentMethod: data.paymentMethod,
-      transactionRef: data.transactionRef,
-      itemCount: data.items.length,
-      items: data.items.map((i) => ({
-        name: i.name,
-        quantity: i.quantity,
-        unitPrice: i.unitPrice,
-        total: i.total,
-        size: i.size ?? null,
-      })),
-    };
-    console.log("[orders] createOrder payload:", JSON.stringify(payload, null, 2));
-
-    try {
-      const order = await prisma.order.create({
-        data: {
-          customerName: payload.customerName,
-          customerPhone: payload.customerPhone,
-          customerAddress: payload.customerAddress,
-          customerNotes: nn(payload.customerNotes),
-          areaLabel: nn(payload.areaLabel),
-          deliveryCharge: safeNum(payload.deliveryCharge),
-          subtotal: safeNum(payload.subtotal),
-          total: safeNum(payload.total),
-          paymentMethod: payload.paymentMethod,
-          transactionRef: nn(payload.transactionRef),
-          items: {
-            create: payload.items.map((item) => ({
-              name: item.name,
-              quantity: item.quantity,
-              unitPrice: safeNum(item.unitPrice),
-              total: safeNum(item.total),
-              size: nn(item.size),
-            })),
-          },
-        },
-        include: { items: true },
-      });
-
-      console.log("[orders] createOrder success:", order.id, "orderNumber:", order.orderNumber);
-      return toOrderDto(order);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      const code = err && typeof err === "object" && "code" in err ? (err as { code: string }).code : "unknown";
-      const meta = err && typeof err === "object" && "meta" in err ? (err as { meta: unknown }).meta : undefined;
-      console.error("[orders] createOrder FAILED:", { code, msg, meta });
-      throw new Error(`Order creation failed (${code}): ${msg}`);
-    }
-  });
-
-// ---------------------------------------------------------------------------
-// Admin: List Orders (with search, filters, pagination)
-// ---------------------------------------------------------------------------
-
-export const listOrders = createServerFn({ method: "POST" })
-  .validator(orderFiltersSchema)
-  .handler(async ({ data }): Promise<{ orders: OrderDto[]; total: number }> => {
-    try {
-      await requireSession();
-
-      const where: Record<string, unknown> = {};
-
-      if (data.status && data.status !== "all") {
-        where.status = data.status;
-      }
-
-      if (data.search && data.search.trim() !== "") {
-        const q = data.search.trim();
-        const orFilters: Record<string, unknown>[] = [
-          { customerName: { contains: q, mode: "insensitive" } },
-          { customerPhone: { contains: q } },
-        ];
-        const num = Number(q);
-        if (Number.isFinite(num)) {
-          orFilters.push({ orderNumber: num });
-        }
-        where.OR = orFilters;
-      }
-
-      const [orders, total] = await Promise.all([
-        prisma.order.findMany({
-          where,
-          include: { items: true },
-          orderBy: { createdAt: "desc" },
-          skip: (data.page - 1) * data.pageSize,
-          take: data.pageSize,
-        }),
-        prisma.order.count({ where }),
-      ]);
-
-      console.log("[listOrders] Found orders count:", orders.length, "total:", total);
-      return { orders: orders.map(toOrderDto), total };
-    } catch (err) {
-      console.error("[orders] listOrders failed:", err);
-      return { orders: [], total: 0 };
-    }
-  });
-
-// ---------------------------------------------------------------------------
-// Admin: Get Single Order
-// ---------------------------------------------------------------------------
-
-export const getOrder = createServerFn({ method: "GET" })
-  .validator(z.object({ id: z.string().uuid() }))
-  .handler(async ({ data }): Promise<OrderDto | null> => {
-    try {
-      await requireSession();
-
-      const order = await prisma.order.findUnique({
-        where: { id: data.id },
-        include: { items: true },
-      });
-
-      return order ? toOrderDto(order) : null;
-    } catch (err) {
-      console.error("[orders] getOrder failed:", err);
-      return null;
-    }
-  });
-
-// ---------------------------------------------------------------------------
-// Admin: Update Order Status
-// ---------------------------------------------------------------------------
-
-export const updateOrderStatus = createServerFn({ method: "POST" })
-  .validator(orderStatusSchema)
-  .handler(async ({ data }): Promise<OrderDto> => {
-    try {
-      await requireSession();
-
-      const order = await prisma.order.update({
-        where: { id: data.id },
-        data: { status: data.status },
-        include: { items: true },
-      });
-
-      return toOrderDto(order);
-    } catch (err) {
-      console.error("[orders] updateOrderStatus failed:", err);
-      throw new Error("Failed to update order status");
-    }
-  });
-
-// ---------------------------------------------------------------------------
-// Admin: Update Payment Status
-// ---------------------------------------------------------------------------
-
-export const updatePaymentStatus = createServerFn({ method: "POST" })
-  .validator(paymentStatusSchema)
-  .handler(async ({ data }): Promise<OrderDto> => {
-    try {
-      await requireSession();
-
-      const order = await prisma.order.update({
-        where: { id: data.id },
-        data: { paymentStatus: data.paymentStatus },
-        include: { items: true },
-      });
-
-      return toOrderDto(order);
-    } catch (err) {
-      console.error("[orders] updatePaymentStatus failed:", err);
-      throw new Error("Failed to update payment status");
-    }
-  });
-
-// ---------------------------------------------------------------------------
-// Admin: Dashboard Stats
-// ---------------------------------------------------------------------------
-
-export const getOrderStats = createServerFn({ method: "GET" }).handler(
-  async (): Promise<OrderStats> => {
-    try {
-      await requireSession();
-
-      const todayStart = new Date();
-      todayStart.setHours(0, 0, 0, 0);
-
-      const [totalOrders, pendingOrders, todayAgg, recentOrders] = await Promise.all([
-        prisma.order.count(),
-        prisma.order.count({ where: { status: "pending" } }),
-        prisma.order.aggregate({
-          where: { createdAt: { gte: todayStart } },
-          _sum: { total: true },
-        }),
-        prisma.order.findMany({
-          orderBy: { createdAt: "desc" },
-          take: 5,
-          include: { items: true },
-        }),
-      ]);
-
-      return {
-        totalOrders,
-        pendingOrders,
-        todaySales: Number(todayAgg._sum.total ?? 0),
-        recentOrders: recentOrders.map(toOrderDto),
-      };
-    } catch (err) {
-      console.error("[orders] getOrderStats failed:", err);
-      return { totalOrders: 0, pendingOrders: 0, todaySales: 0, recentOrders: [] };
-    }
-  },
-);
-
-// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-/** Safely coerce a value to a finite number, returning fallback if not. */
 function safeNum(v: unknown, fallback = 0): number {
   if (typeof v === "number" && Number.isFinite(v)) return v;
   if (typeof v === "string") {
@@ -339,7 +111,6 @@ function safeNum(v: unknown, fallback = 0): number {
   return fallback;
 }
 
-/** Coerce undefined to null (Prisma prefers explicit null over undefined for DB fields). */
 function nn<T>(v: T | undefined): T | null {
   return v === undefined ? null : v;
 }
@@ -391,3 +162,179 @@ function toOrderDto(order: Record<string, unknown>): OrderDto {
     })),
   };
 }
+
+// ---------------------------------------------------------------------------
+// Public: Create Order (called from checkout)
+// ---------------------------------------------------------------------------
+
+export const createOrder = createServerFn({ method: "POST" })
+  .validator(createOrderSchema)
+  .handler(async ({ data }): Promise<OrderDto> => {
+    console.log("[orders] createOrder called with:", JSON.stringify({
+      name: data.customerName,
+      phone: data.customerPhone,
+      method: data.paymentMethod,
+      total: data.total,
+      items: data.items.length,
+    }));
+
+    const order = await prisma.order.create({
+      data: {
+        customerName: data.customerName,
+        customerPhone: data.customerPhone,
+        customerAddress: data.customerAddress,
+        customerNotes: nn(data.customerNotes),
+        areaLabel: nn(data.areaLabel),
+        deliveryCharge: safeNum(data.deliveryCharge),
+        subtotal: safeNum(data.subtotal),
+        total: safeNum(data.total),
+        paymentMethod: data.paymentMethod,
+        transactionRef: nn(data.transactionRef),
+        items: {
+          create: data.items.map((item) => ({
+            name: item.name,
+            quantity: item.quantity,
+            unitPrice: safeNum(item.unitPrice),
+            total: safeNum(item.total),
+            size: nn(item.size),
+          })),
+        },
+      },
+      include: { items: true },
+    });
+
+    console.log("[orders] createOrder SUCCESS:", order.id, "#", order.orderNumber);
+    return toOrderDto(order);
+  });
+
+// ---------------------------------------------------------------------------
+// Admin: List Orders — errors propagate to client (no silent catch)
+// ---------------------------------------------------------------------------
+
+export const listOrders = createServerFn({ method: "POST" })
+  .validator(orderFiltersSchema)
+  .handler(async ({ data }): Promise<{ orders: OrderDto[]; total: number }> => {
+    await requireSession();
+
+    const where: Record<string, unknown> = {};
+
+    if (data.status && data.status !== "all") {
+      where.status = data.status;
+    }
+
+    if (data.search && data.search.trim() !== "") {
+      const q = data.search.trim();
+      const orFilters: Record<string, unknown>[] = [
+        { customerName: { contains: q, mode: "insensitive" } },
+        { customerPhone: { contains: q } },
+      ];
+      const num = Number(q);
+      if (Number.isFinite(num)) {
+        orFilters.push({ orderNumber: num });
+      }
+      where.OR = orFilters;
+    }
+
+    const [orders, total] = await Promise.all([
+      prisma.order.findMany({
+        where,
+        include: { items: true },
+        orderBy: { createdAt: "desc" },
+        skip: (data.page - 1) * data.pageSize,
+        take: data.pageSize,
+      }),
+      prisma.order.count({ where }),
+    ]);
+
+    console.log("[orders] listOrders returned:", orders.length, "of", total, "total");
+    return { orders: orders.map(toOrderDto), total };
+  });
+
+// ---------------------------------------------------------------------------
+// Admin: Get Single Order
+// ---------------------------------------------------------------------------
+
+export const getOrder = createServerFn({ method: "GET" })
+  .validator(z.object({ id: z.string().uuid() }))
+  .handler(async ({ data }): Promise<OrderDto | null> => {
+    await requireSession();
+
+    const order = await prisma.order.findUnique({
+      where: { id: data.id },
+      include: { items: true },
+    });
+
+    return order ? toOrderDto(order) : null;
+  });
+
+// ---------------------------------------------------------------------------
+// Admin: Update Order Status
+// ---------------------------------------------------------------------------
+
+export const updateOrderStatus = createServerFn({ method: "POST" })
+  .validator(orderStatusSchema)
+  .handler(async ({ data }): Promise<OrderDto> => {
+    await requireSession();
+
+    const order = await prisma.order.update({
+      where: { id: data.id },
+      data: { status: data.status },
+      include: { items: true },
+    });
+
+    return toOrderDto(order);
+  });
+
+// ---------------------------------------------------------------------------
+// Admin: Update Payment Status
+// ---------------------------------------------------------------------------
+
+export const updatePaymentStatus = createServerFn({ method: "POST" })
+  .validator(paymentStatusSchema)
+  .handler(async ({ data }): Promise<OrderDto> => {
+    await requireSession();
+
+    const order = await prisma.order.update({
+      where: { id: data.id },
+      data: { paymentStatus: data.paymentStatus },
+      include: { items: true },
+    });
+
+    return toOrderDto(order);
+  });
+
+// ---------------------------------------------------------------------------
+// Admin: Dashboard Stats — errors propagate to client (no silent catch)
+// ---------------------------------------------------------------------------
+
+export const getOrderStats = createServerFn({ method: "GET" }).handler(
+  async (): Promise<OrderStats> => {
+    await requireSession();
+
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    const [totalOrders, pendingOrders, todayAgg, recentOrders] = await Promise.all([
+      prisma.order.count(),
+      prisma.order.count({ where: { status: "pending" } }),
+      prisma.order.aggregate({
+        where: { createdAt: { gte: todayStart } },
+        _sum: { total: true },
+      }),
+      prisma.order.findMany({
+        orderBy: { createdAt: "desc" },
+        take: 5,
+        include: { items: true },
+      }),
+    ]);
+
+    console.log("[orders] getOrderStats:", { totalOrders, pendingOrders });
+
+    return {
+      totalOrders,
+      pendingOrders,
+      todaySales: Number(todayAgg._sum.total ?? 0),
+      recentOrders: recentOrders.map(toOrderDto),
+    };
+  },
+);
