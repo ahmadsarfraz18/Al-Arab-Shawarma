@@ -115,8 +115,15 @@ function AdminOrdersPage() {
 
   const ordersQuery = useQuery({
     queryKey: ["admin", "orders", { search: debouncedSearch, status: statusFilter, page }],
-    queryFn: () =>
-      listOrders({ data: { search: debouncedSearch, status: statusFilter, page, pageSize } }),
+    queryFn: async () => {
+      try {
+        const result = await listOrders({ data: { search: debouncedSearch, status: statusFilter, page, pageSize } });
+        return result;
+      } catch (err) {
+        console.error("Order load failed:", err);
+        throw err;
+      }
+    },
   });
 
   const orders = ordersQuery.data?.orders ?? [];

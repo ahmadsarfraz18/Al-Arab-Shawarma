@@ -148,7 +148,7 @@ export const createOrder = createServerFn({ method: "POST" })
 // Admin: List Orders (with search, filters, pagination)
 // ---------------------------------------------------------------------------
 
-export const listOrders = createServerFn({ method: "GET" })
+export const listOrders = createServerFn({ method: "POST" })
   .validator(orderFiltersSchema)
   .handler(async ({ data }): Promise<{ orders: OrderDto[]; total: number }> => {
     try {
@@ -263,7 +263,7 @@ export const updatePaymentStatus = createServerFn({ method: "POST" })
 // Admin: Dashboard Stats
 // ---------------------------------------------------------------------------
 
-export const getOrderStats = createServerFn({ method: "GET" }).handler(
+export const getOrderStats = createServerFn({ method: "POST" }).handler(
   async (): Promise<OrderStats> => {
     try {
       await requireSession();
