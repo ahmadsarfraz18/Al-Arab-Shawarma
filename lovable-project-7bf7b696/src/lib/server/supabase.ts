@@ -1,25 +1,25 @@
 import process from "node:process";
 
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 const globalForSupabase = globalThis as unknown as {
-  __supabase: ReturnType<typeof createClient> | undefined;
+  __supabase: SupabaseClient | undefined;
 };
 
-function createSupabaseClient() {
+export function getSupabaseClient(): SupabaseClient {
+  if (globalForSupabase.__supabase) return globalForSupabase.__supabase;
+
   const url = process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_ANON_KEY;
 
-  if (!url) throw new Error("SUPABASE_URL is not set");
-  if (!key) throw new Error("SUPABASE_ANON_KEY is not set");
+  if (!url) throw new Error("Missing env var SUPABASE_URL — set it in Vercel dashboard");
+  if (!key) throw new Error("Missing env var SUPABASE_ANON_KEY — set it in Vercel dashboard");
 
-  return createClient(url, key, {
-    auth: { persistSession: false },
-  });
-}
+  const client = createClient(url, key, { auth: { persistSession: false } });
 
-export const supabase = globalForSupabase.__supabase ?? createSupabaseClient();
+  if (process.env.NODE_ENV !== "production") {
+    globalForSupabase.__supabase = client;
+  }
 
-if (process.env.NODE_ENV !== "production") {
-  globalForSupabase.__supabase = supabase;
+  return client;
 }

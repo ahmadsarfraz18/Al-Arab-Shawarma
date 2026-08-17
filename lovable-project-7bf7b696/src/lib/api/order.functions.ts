@@ -5,7 +5,7 @@ import { getRequestHeaders } from "@tanstack/react-start/server";
 import { z } from "zod";
 
 import { auth } from "../auth/auth.server";
-import { supabase } from "../server/supabase";
+import { getSupabaseClient } from "../server/supabase";
 
 // ---------------------------------------------------------------------------
 // Auth helper — identical pattern to menu.functions.ts (no try-catch wrapper)
@@ -167,7 +167,7 @@ export const createOrder = createServerFn({ method: "POST" })
     const orderId = randomUUID();
     const now = new Date().toISOString();
 
-    const { data: orderRow, error: orderErr } = await supabase
+    const { data: orderRow, error: orderErr } = await getSupabaseClient()
       .from("orders")
       .insert({
         id: orderId,
@@ -206,7 +206,7 @@ export const createOrder = createServerFn({ method: "POST" })
         size: item.size ?? null,
       }));
 
-      const { error: itemsErr } = await supabase
+      const { error: itemsErr } = await getSupabaseClient()
         .from("order_items")
         .insert(itemsToInsert);
 
@@ -217,7 +217,7 @@ export const createOrder = createServerFn({ method: "POST" })
     }
 
     // 3. Fetch the complete order with items
-    const { data: fullOrder, error: fetchErr } = await supabase
+    const { data: fullOrder, error: fetchErr } = await getSupabaseClient()
       .from("orders")
       .select("*, items:order_items(*)")
       .eq("id", orderRow.id)
@@ -241,7 +241,7 @@ export const listOrders = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<{ orders: OrderDto[]; total: number }> => {
     await requireSession();
 
-    let query = supabase
+    let query = getSupabaseClient()
       .from("orders")
       .select("*, items:order_items(*)", { count: "exact" })
       .order("created_at", { ascending: false });
@@ -296,7 +296,7 @@ export const getOrder = createServerFn({ method: "GET" })
   .handler(async ({ data }): Promise<OrderDto | null> => {
     await requireSession();
 
-    const { data: order, error } = await supabase
+    const { data: order, error } = await getSupabaseClient()
       .from("orders")
       .select("*, items:order_items(*)")
       .eq("id", data.id)
@@ -319,7 +319,7 @@ export const updateOrderStatus = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<OrderDto> => {
     await requireSession();
 
-    const { data: order, error } = await supabase
+    const { data: order, error } = await getSupabaseClient()
       .from("orders")
       .update({ status: data.status })
       .eq("id", data.id)
@@ -340,7 +340,7 @@ export const updatePaymentStatus = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<OrderDto> => {
     await requireSession();
 
-    const { data: order, error } = await supabase
+    const { data: order, error } = await getSupabaseClient()
       .from("orders")
       .update({ payment_status: data.paymentStatus })
       .eq("id", data.id)
@@ -366,22 +366,22 @@ export const getOrderStats = createServerFn({ method: "GET" }).handler(
     // Run all queries in parallel
     const [totalResult, pendingResult, todayResult, recentResult] = await Promise.all([
       // Total orders count
-      supabase.from("orders").select("*", { count: "exact", head: true }),
+      getSupabaseClient().from("orders").select("*", { count: "exact", head: true }),
 
       // Pending orders count
-      supabase
+      getSupabaseClient()
         .from("orders")
         .select("*", { count: "exact", head: true })
         .eq("status", "pending"),
 
       // Today's sales sum
-      supabase
+      getSupabaseClient()
         .from("orders")
         .select("total")
         .gte("created_at", todayStart.toISOString()),
 
       // Recent 5 orders
-      supabase
+      getSupabaseClient()
         .from("orders")
         .select("*, items:order_items(*)")
         .order("created_at", { ascending: false })
