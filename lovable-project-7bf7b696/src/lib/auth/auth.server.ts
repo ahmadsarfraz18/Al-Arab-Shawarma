@@ -16,10 +16,19 @@ if (!secret || secret.trim() === "") {
 
 const baseURL = process.env.BETTER_AUTH_URL?.trim() || undefined;
 
+const TRUSTED_ORIGINS = [
+  "https://alarabshawarma.pk",
+  "https://www.alarabshawarma.pk",
+  "https://al-arab-shawarma.vercel.app",
+  "http://localhost:3000",
+];
+
 export const auth = betterAuth({
   secret,
   baseURL,
   database: prismaAdapter(prisma, { provider: "postgresql" }),
+
+  trustedOrigins: TRUSTED_ORIGINS,
 
   emailAndPassword: {
     enabled: true,
@@ -69,6 +78,11 @@ export const auth = betterAuth({
     // Secure cookies in production (HTTPS); plain cookies for local dev.
     useSecureCookies: process.env.NODE_ENV === "production",
     cookiePrefix: "al_arab",
+    defaultCookieAttributes: {
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      httpOnly: true,
+    },
   },
 
   plugins: [tanstackStartCookies()],
