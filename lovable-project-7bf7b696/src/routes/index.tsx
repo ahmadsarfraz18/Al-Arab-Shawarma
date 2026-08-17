@@ -89,6 +89,7 @@ import {
   isOpenNow,
 } from "@/lib/opening-hours";
 import { buildOrderMessage } from "@/lib/order-message";
+import { createOrder } from "@/lib/api/order.functions";
 import { buildThemeCss } from "@/lib/theme";
 import { buildHomeSeoHead, FALLBACK_SEO } from "@/lib/seo";
 import { getSiteBaseUrl } from "@/lib/site-url";
@@ -1082,7 +1083,7 @@ function Home() {
     bank: `Bank Transfer — ${bankName} · ${bankTitle} · IBAN ${bankIban}`,
   };
 
-  const onOrder = (data: FormValues) => {
+  const onOrder = async (data: FormValues) => {
     if (!selectedArea) {
       toast.error("Please select a delivery area");
       return;
@@ -1096,12 +1097,44 @@ function Home() {
       return;
     }
     setOrdering(true);
+
+    // 1. Persist order to database
+    let orderId: string | null = null;
+    try {
+      const result = await createOrder({
+        data: {
+          customerName: data.name,
+          customerPhone: data.phone,
+          customerAddress: data.address,
+          customerNotes: data.notes,
+          areaLabel: selectedArea.label,
+          deliveryCharge: delivery,
+          subtotal,
+          total: grand,
+          paymentMethod: payment,
+          transactionRef: payment === "cod" ? undefined : txnRef.trim() || undefined,
+          items: lines.map((l) => ({
+            name: l.item.name,
+            quantity: l.qty,
+            unitPrice: lineUnitPrice(l.item, l.size),
+            total: lineUnitPrice(l.item, l.size) * l.qty,
+            size: l.size,
+          })),
+        },
+      });
+      orderId = result.id;
+    } catch (err) {
+      console.error("[order] failed to save order", err);
+    }
+
+    // 2. Open WhatsApp
     const itemsTxt = lines
       .map(
         (l) =>
           `• ${l.qty} × ${l.item.name}${l.size ? ` (${l.size})` : ""} — ${fmt(lineUnitPrice(l.item, l.size) * l.qty)}`,
       )
       .join("\n");
+    const orderRef = orderId ? `\n📋 Order #${orderId.slice(0, 8).toUpperCase()}` : "";
     const payNote =
       payment === "cod"
         ? ""
@@ -1118,7 +1151,7 @@ function Home() {
       grand,
       paymentLabel: paymentLabel[payment],
       transactionRef: payment === "cod" ? undefined : txnRef.trim(),
-      paymentNote: payNote,
+      paymentNote: payNote + orderRef,
     });
     const url = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(msg)}`;
     let opened = false;

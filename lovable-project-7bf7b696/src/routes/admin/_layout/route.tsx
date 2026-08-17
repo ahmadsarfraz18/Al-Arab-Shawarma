@@ -11,6 +11,7 @@ import {
   Store,
   Truck,
   UtensilsCrossed,
+  ShoppingCart,
 } from "lucide-react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -45,6 +46,7 @@ type NavItem = { label: string; icon: typeof LayoutDashboard; to: string };
 
 const NAV_ITEMS: NavItem[] = [
   { label: "Dashboard", icon: LayoutDashboard, to: "/admin" },
+  { label: "Orders", icon: ShoppingCart, to: "/admin/orders" },
   { label: "Menu Items", icon: UtensilsCrossed, to: "/admin/menu" },
   { label: "Categories", icon: LayoutGrid, to: "/admin/categories" },
   { label: "Delivery", icon: Truck, to: "/admin/delivery" },

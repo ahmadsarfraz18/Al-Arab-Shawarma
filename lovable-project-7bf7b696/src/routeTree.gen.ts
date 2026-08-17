@@ -17,6 +17,7 @@ import { Route as AdminLayoutRouteRouteImport } from './routes/admin/_layout/rou
 import { Route as AdminLayoutIndexRouteImport } from './routes/admin/_layout/index'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as AdminLayoutSettingsRouteImport } from './routes/admin/_layout/settings'
+import { Route as AdminLayoutOrdersRouteImport } from './routes/admin/_layout/orders'
 import { Route as AdminLayoutMenuRouteImport } from './routes/admin/_layout/menu'
 import { Route as AdminLayoutLoginRouteImport } from './routes/admin/_layout/login'
 import { Route as AdminLayoutHomepageRouteImport } from './routes/admin/_layout/homepage'
@@ -63,6 +64,11 @@ const AdminLayoutSettingsRoute = AdminLayoutSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => AdminLayoutRouteRoute,
 } as any)
+const AdminLayoutOrdersRoute = AdminLayoutOrdersRouteImport.update({
+  id: '/orders',
+  path: '/orders',
+  getParentRoute: () => AdminLayoutRouteRoute,
+} as any)
 const AdminLayoutMenuRoute = AdminLayoutMenuRouteImport.update({
   id: '/menu',
   path: '/menu',
@@ -100,6 +106,7 @@ export interface FileRoutesByFullPath {
   '/admin/homepage': typeof AdminLayoutHomepageRoute
   '/admin/login': typeof AdminLayoutLoginRoute
   '/admin/menu': typeof AdminLayoutMenuRoute
+  '/admin/orders': typeof AdminLayoutOrdersRoute
   '/admin/settings': typeof AdminLayoutSettingsRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/admin/': typeof AdminLayoutIndexRoute
@@ -114,6 +121,7 @@ export interface FileRoutesByTo {
   '/admin/homepage': typeof AdminLayoutHomepageRoute
   '/admin/login': typeof AdminLayoutLoginRoute
   '/admin/menu': typeof AdminLayoutMenuRoute
+  '/admin/orders': typeof AdminLayoutOrdersRoute
   '/admin/settings': typeof AdminLayoutSettingsRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/admin': typeof AdminLayoutIndexRoute
@@ -130,6 +138,7 @@ export interface FileRoutesById {
   '/admin/_layout/homepage': typeof AdminLayoutHomepageRoute
   '/admin/_layout/login': typeof AdminLayoutLoginRoute
   '/admin/_layout/menu': typeof AdminLayoutMenuRoute
+  '/admin/_layout/orders': typeof AdminLayoutOrdersRoute
   '/admin/_layout/settings': typeof AdminLayoutSettingsRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/admin/_layout/': typeof AdminLayoutIndexRoute
@@ -147,6 +156,7 @@ export interface FileRouteTypes {
     | '/admin/homepage'
     | '/admin/login'
     | '/admin/menu'
+    | '/admin/orders'
     | '/admin/settings'
     | '/api/auth/$'
     | '/admin/'
@@ -161,6 +171,7 @@ export interface FileRouteTypes {
     | '/admin/homepage'
     | '/admin/login'
     | '/admin/menu'
+    | '/admin/orders'
     | '/admin/settings'
     | '/api/auth/$'
     | '/admin'
@@ -176,6 +187,7 @@ export interface FileRouteTypes {
     | '/admin/_layout/homepage'
     | '/admin/_layout/login'
     | '/admin/_layout/menu'
+    | '/admin/_layout/orders'
     | '/admin/_layout/settings'
     | '/api/auth/$'
     | '/admin/_layout/'
@@ -248,6 +260,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminLayoutSettingsRouteImport
       parentRoute: typeof AdminLayoutRouteRoute
     }
+    '/admin/_layout/orders': {
+      id: '/admin/_layout/orders'
+      path: '/orders'
+      fullPath: '/admin/orders'
+      preLoaderRoute: typeof AdminLayoutOrdersRouteImport
+      parentRoute: typeof AdminLayoutRouteRoute
+    }
     '/admin/_layout/menu': {
       id: '/admin/_layout/menu'
       path: '/menu'
@@ -292,6 +311,7 @@ interface AdminLayoutRouteRouteChildren {
   AdminLayoutHomepageRoute: typeof AdminLayoutHomepageRoute
   AdminLayoutLoginRoute: typeof AdminLayoutLoginRoute
   AdminLayoutMenuRoute: typeof AdminLayoutMenuRoute
+  AdminLayoutOrdersRoute: typeof AdminLayoutOrdersRoute
   AdminLayoutSettingsRoute: typeof AdminLayoutSettingsRoute
   AdminLayoutIndexRoute: typeof AdminLayoutIndexRoute
 }
@@ -302,6 +322,7 @@ const AdminLayoutRouteRouteChildren: AdminLayoutRouteRouteChildren = {
   AdminLayoutHomepageRoute: AdminLayoutHomepageRoute,
   AdminLayoutLoginRoute: AdminLayoutLoginRoute,
   AdminLayoutMenuRoute: AdminLayoutMenuRoute,
+  AdminLayoutOrdersRoute: AdminLayoutOrdersRoute,
   AdminLayoutSettingsRoute: AdminLayoutSettingsRoute,
   AdminLayoutIndexRoute: AdminLayoutIndexRoute,
 }

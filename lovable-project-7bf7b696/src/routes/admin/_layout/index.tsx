@@ -13,6 +13,9 @@ import {
   Sparkles,
   Star,
   UtensilsCrossed,
+  ShoppingCart,
+  Clock,
+  TrendingUp,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -21,9 +24,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 import { AdminError } from "@/components/admin/state-views";
 
-import { formatNumber, formatRelativeTime } from "@/lib/format";
+import { formatCurrency, formatNumber, formatRelativeTime } from "@/lib/format";
 
 import { getAdminOverview } from "@/lib/api/menu.functions";
+import { getOrderStats, type OrderDto } from "@/lib/api/order.functions";
 
 export const Route = createFileRoute("/admin/_layout/")({
   head: () => ({
@@ -61,6 +65,17 @@ function entityLabel(entityType: string): string {
   return ENTITY_LABELS[entityType] ?? entityType;
 }
 
+function statusColor(status: string): string {
+  const map: Record<string, string> = {
+    pending: "bg-amber-100 text-amber-800",
+    confirmed: "bg-blue-100 text-blue-800",
+    preparing: "bg-purple-100 text-purple-800",
+    delivered: "bg-emerald-100 text-emerald-800",
+    cancelled: "bg-red-100 text-red-800",
+  };
+  return map[status] ?? "bg-gray-100 text-gray-800";
+}
+
 function formatWhen(iso: string): string {
   return formatRelativeTime(iso);
 }
@@ -71,12 +86,14 @@ function StatCard({
   value,
   hint,
   loading,
+  isCurrency,
 }: {
   icon: React.ComponentType<{ className?: string }>;
   label: string;
   value: number;
   hint: string;
   loading: boolean;
+  isCurrency?: boolean;
 }) {
   return (
     <Card className="shadow-card-soft">
@@ -88,7 +105,9 @@ function StatCard({
         {loading ? (
           <Skeleton className="h-8 w-16" />
         ) : (
-          <div className="font-display text-3xl font-bold">{formatNumber(value)}</div>
+          <div className="font-display text-3xl font-bold">
+            {isCurrency ? formatCurrency(value) : formatNumber(value)}
+          </div>
         )}
         <p className="mt-1 text-xs text-muted-foreground">{hint}</p>
       </CardContent>
@@ -106,7 +125,13 @@ function AdminDashboard() {
     queryFn: () => getAdminOverview(),
   });
 
+  const orderStats = useQuery({
+    queryKey: ["admin", "order-stats"],
+    queryFn: () => getOrderStats(),
+  });
+
   const stats = overview.data;
+  const orders = orderStats.data;
   const loading = overview.isLoading;
 
   return (
@@ -165,6 +190,38 @@ function AdminDashboard() {
         />
       </div>
 
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard
+          icon={ShoppingCart}
+          label="Total Orders"
+          value={orders?.totalOrders ?? 0}
+          hint="All time"
+          loading={orderStats.isLoading}
+        />
+        <StatCard
+          icon={Clock}
+          label="Pending Orders"
+          value={orders?.pendingOrders ?? 0}
+          hint="Awaiting confirmation"
+          loading={orderStats.isLoading}
+        />
+        <StatCard
+          icon={TrendingUp}
+          label="Today's Sales"
+          value={orders?.todaySales ?? 0}
+          hint="Revenue today"
+          loading={orderStats.isLoading}
+          isCurrency
+        />
+        <StatCard
+          icon={LayoutDashboard}
+          label="Quick Stats"
+          value={stats?.featuredItems ?? 0}
+          hint="Featured menu items"
+          loading={loading}
+        />
+      </div>
+
       <div className="grid gap-6 lg:grid-cols-2">
         <Card className="shadow-card-soft">
           <CardHeader>
@@ -174,6 +231,22 @@ function AdminDashboard() {
             <CardDescription>Common management tasks.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
+            <Link to="/admin/orders" className="block">
+              <div className="group flex items-center justify-between gap-3 rounded-xl border border-border bg-muted/30 px-4 py-3 transition-colors hover:border-brand/40">
+                <div className="flex items-center gap-3">
+                  <span className="grid h-10 w-10 place-items-center rounded-lg bg-gradient-brand text-brand-foreground">
+                    <ShoppingCart className="h-5 w-5" />
+                  </span>
+                  <div>
+                    <div className="font-semibold">View orders</div>
+                    <div className="text-xs text-muted-foreground">
+                      {orders?.pendingOrders ?? 0} pending order{(orders?.pendingOrders ?? 0) === 1 ? "" : "s"}
+                    </div>
+                  </div>
+                </div>
+                <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-brand" />
+              </div>
+            </Link>
             <Link to="/admin/menu" className="block">
               <div className="group flex items-center justify-between gap-3 rounded-xl border border-border bg-muted/30 px-4 py-3 transition-colors hover:border-brand/40">
                 <div className="flex items-center gap-3">
@@ -293,6 +366,57 @@ function AdminDashboard() {
             ) : (
               <p className="py-8 text-center text-sm text-muted-foreground">
                 No activity recorded yet. Changes you make will show up here.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-card-soft">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
+            <CardTitle className="flex items-center gap-2 font-display text-lg">
+              <ShoppingCart className="h-5 w-5 text-brand" /> Recent Orders
+            </CardTitle>
+            <Button variant="ghost" size="sm" asChild>
+              <Link to="/admin/orders">
+                View all <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+            </Button>
+          </CardHeader>
+          <CardContent>
+            {orderStats.isLoading ? (
+              <div className="space-y-3">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <Skeleton key={i} className="h-10 w-full" />
+                ))}
+              </div>
+            ) : orders && orders.recentOrders.length > 0 ? (
+              <ul className="space-y-2">
+                {orders.recentOrders.map((o) => (
+                  <li
+                    key={o.id}
+                    className="flex items-center justify-between gap-3 rounded-xl border border-border bg-muted/30 px-4 py-3"
+                  >
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-sm font-bold">#{o.orderNumber}</span>
+                        <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusColor(o.status)}`}>
+                          {o.status}
+                        </span>
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {o.customerName} · {o.items.length} item{o.items.length === 1 ? "" : "s"}
+                      </div>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <div className="text-sm font-bold">{formatCurrency(o.total)}</div>
+                      <div className="text-[10px] text-muted-foreground">{formatRelativeTime(o.createdAt)}</div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="py-8 text-center text-sm text-muted-foreground">
+                No orders yet. Orders will appear here once customers start ordering.
               </p>
             )}
           </CardContent>

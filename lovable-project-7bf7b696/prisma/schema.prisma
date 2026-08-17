@@ -460,3 +460,65 @@ model PaymentSettings {
 
   @@map("payment_settings")
 }
+
+// ---------------------------------------------------------------------------
+// Orders (public checkout → admin management)
+// ---------------------------------------------------------------------------
+
+enum OrderStatus {
+  pending
+  confirmed
+  preparing
+  delivered
+  cancelled
+}
+
+enum PaymentStatus {
+  pending
+  paid
+  failed
+}
+
+enum PaymentMethod {
+  cod
+  easypaisa
+  bank
+}
+
+model Order {
+  id              String        @id @default(uuid()) @db.Uuid
+  orderNumber     Int           @unique @map("order_number") @default(autoincrement())
+  customerName    String        @map("customer_name")
+  customerPhone   String        @map("customer_phone")
+  customerAddress String        @map("customer_address")
+  customerNotes   String?       @map("customer_notes")
+  areaLabel       String?       @map("area_label")
+  deliveryCharge  Decimal       @default(0) @map("delivery_charge") @db.Decimal(10, 2)
+  subtotal        Decimal       @map("subtotal") @db.Decimal(10, 2)
+  total           Decimal       @map("total") @db.Decimal(10, 2)
+  paymentMethod   PaymentMethod @map("payment_method")
+  paymentStatus   PaymentStatus @default(pending) @map("payment_status")
+  transactionRef  String?       @map("transaction_ref")
+  status          OrderStatus   @default(pending)
+  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime      @updatedAt @map("updated_at") @db.Timestamptz
+  items           OrderItem[]
+
+  @@index([status])
+  @@index([createdAt(sort: Desc)])
+  @@map("orders")
+}
+
+model OrderItem {
+  id        String  @id @default(uuid()) @db.Uuid
+  orderId   String  @map("order_id") @db.Uuid
+  name      String
+  quantity  Int
+  unitPrice Decimal @map("unit_price") @db.Decimal(10, 2)
+  total     Decimal @db.Decimal(10, 2)
+  size      String?
+  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@map("order_items")
+}
