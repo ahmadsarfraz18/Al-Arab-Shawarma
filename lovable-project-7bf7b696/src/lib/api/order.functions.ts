@@ -210,6 +210,7 @@ export const listOrders = createServerFn({ method: "POST" })
         prisma.order.count({ where }),
       ]);
 
+      console.log("[listOrders] Found orders count:", orders.length, "total:", total);
       return { orders: orders.map(toOrderDto), total };
     } catch (err) {
       console.error("[orders] listOrders failed:", err);
