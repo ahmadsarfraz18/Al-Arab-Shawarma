@@ -111,6 +111,13 @@ const orderFiltersSchema = z.object({
 export const createOrder = createServerFn({ method: "POST" })
   .validator(createOrderSchema)
   .handler(async ({ data }): Promise<OrderDto> => {
+    console.log("[orders] createOrder called", {
+      customerName: data.customerName,
+      paymentMethod: data.paymentMethod,
+      itemCount: data.items.length,
+      total: data.total,
+    });
+
     try {
       const order = await prisma.order.create({
         data: {
@@ -137,10 +144,13 @@ export const createOrder = createServerFn({ method: "POST" })
         include: { items: true },
       });
 
+      console.log("[orders] createOrder success:", order.id);
       return toOrderDto(order);
     } catch (err) {
-      console.error("[orders] createOrder failed:", err);
-      throw new Error("Failed to create order");
+      console.error("[orders] createOrder Prisma error:", err);
+      throw new Error(
+        `Failed to create order: ${err instanceof Error ? err.message : String(err)}`,
+      );
     }
   });
 

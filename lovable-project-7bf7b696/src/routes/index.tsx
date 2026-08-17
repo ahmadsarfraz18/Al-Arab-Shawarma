@@ -1123,8 +1123,12 @@ function Home() {
         },
       });
       orderId = result.id;
+      console.log("[order] successfully persisted:", result.id);
     } catch (err) {
-      console.error("[order] failed to save order", err);
+      console.error("[order] failed to save order to database:", err);
+      toast.error("Could not save your order — please try again or contact us on WhatsApp.");
+      setOrdering(false);
+      return;
     }
 
     // 2. Open WhatsApp
