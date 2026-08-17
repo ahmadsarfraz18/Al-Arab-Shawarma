@@ -1,9 +1,11 @@
+import { randomUUID } from "node:crypto";
+
 import { createServerFn } from "@tanstack/react-start";
 import { getRequestHeaders } from "@tanstack/react-start/server";
 import { z } from "zod";
 
 import { auth } from "../auth/auth.server";
-import { prisma } from "../server/prisma";
+import { supabase } from "../server/supabase";
 
 // ---------------------------------------------------------------------------
 // Auth helper — identical pattern to menu.functions.ts (no try-catch wrapper)
@@ -99,7 +101,7 @@ const orderFiltersSchema = z.object({
 });
 
 // ---------------------------------------------------------------------------
-// Helpers
+// Helpers — Supabase returns snake_case columns; map to camelCase DTO
 // ---------------------------------------------------------------------------
 
 function safeNum(v: unknown, fallback = 0): number {
@@ -111,53 +113,36 @@ function safeNum(v: unknown, fallback = 0): number {
   return fallback;
 }
 
-function nn<T>(v: T | undefined): T | null {
-  return v === undefined ? null : v;
+function num(v: unknown): number {
+  return safeNum(v, 0);
 }
 
-function toDecimal(n: unknown): number {
-  if (n == null) return 0;
-  if (typeof n === "number" && Number.isFinite(n)) return n;
-  if (typeof n === "string") {
-    const v = Number(n);
-    if (Number.isFinite(v)) return v;
-  }
-  if (typeof n === "object" && "toNumber" in (n as Record<string, unknown>)) {
-    try {
-      return (n as { toNumber: () => number }).toNumber();
-    } catch {
-      return 0;
-    }
-  }
-  return 0;
-}
-
-function toOrderDto(order: Record<string, unknown>): OrderDto {
-  const items = Array.isArray(order.items) ? order.items : [];
+function toOrderDto(row: Record<string, unknown>, items: unknown): OrderDto {
+  const orderItems = Array.isArray(items) ? items : [];
   return {
-    id: order.id as string,
-    orderNumber: order.orderNumber as number,
-    customerName: order.customerName as string,
-    customerPhone: order.customerPhone as string,
-    customerAddress: order.customerAddress as string,
-    customerNotes: (order.customerNotes as string) ?? null,
-    areaLabel: (order.areaLabel as string) ?? null,
-    deliveryCharge: toDecimal(order.deliveryCharge),
-    subtotal: toDecimal(order.subtotal),
-    total: toDecimal(order.total),
-    paymentMethod: order.paymentMethod as string,
-    paymentStatus: order.paymentStatus as string,
-    transactionRef: (order.transactionRef as string) ?? null,
-    status: order.status as string,
-    createdAt: order.createdAt instanceof Date
-      ? order.createdAt.toISOString()
-      : String(order.createdAt ?? new Date().toISOString()),
-    items: items.map((item: Record<string, unknown>) => ({
-      id: item.id as string,
-      name: item.name as string,
-      quantity: item.quantity as number,
-      unitPrice: toDecimal(item.unitPrice),
-      total: toDecimal(item.total),
+    id: String(row.id),
+    orderNumber: Number(row.order_number),
+    customerName: String(row.customer_name),
+    customerPhone: String(row.customer_phone),
+    customerAddress: String(row.customer_address),
+    customerNotes: (row.customer_notes as string) ?? null,
+    areaLabel: (row.area_label as string) ?? null,
+    deliveryCharge: num(row.delivery_charge),
+    subtotal: num(row.subtotal),
+    total: num(row.total),
+    paymentMethod: String(row.payment_method),
+    paymentStatus: String(row.payment_status),
+    transactionRef: (row.transaction_ref as string) ?? null,
+    status: String(row.status),
+    createdAt: row.created_at
+      ? new Date(String(row.created_at)).toISOString()
+      : new Date().toISOString(),
+    items: orderItems.map((item: Record<string, unknown>) => ({
+      id: String(item.id),
+      name: String(item.name),
+      quantity: Number(item.quantity),
+      unitPrice: num(item.unit_price),
+      total: num(item.total),
       size: (item.size as string) ?? null,
     })),
   };
@@ -178,33 +163,73 @@ export const createOrder = createServerFn({ method: "POST" })
       items: data.items.length,
     }));
 
-    const order = await prisma.order.create({
-      data: {
-        customerName: data.customerName,
-        customerPhone: data.customerPhone,
-        customerAddress: data.customerAddress,
-        customerNotes: nn(data.customerNotes),
-        areaLabel: nn(data.areaLabel),
-        deliveryCharge: safeNum(data.deliveryCharge),
-        subtotal: safeNum(data.subtotal),
-        total: safeNum(data.total),
-        paymentMethod: data.paymentMethod,
-        transactionRef: nn(data.transactionRef),
-        items: {
-          create: data.items.map((item) => ({
-            name: item.name,
-            quantity: item.quantity,
-            unitPrice: safeNum(item.unitPrice),
-            total: safeNum(item.total),
-            size: nn(item.size),
-          })),
-        },
-      },
-      include: { items: true },
-    });
+    // 1. Insert order row
+    const orderId = randomUUID();
+    const now = new Date().toISOString();
 
-    console.log("[orders] createOrder SUCCESS:", order.id, "#", order.orderNumber);
-    return toOrderDto(order);
+    const { data: orderRow, error: orderErr } = await supabase
+      .from("orders")
+      .insert({
+        id: orderId,
+        created_at: now,
+        updated_at: now,
+        customer_name: data.customerName,
+        customer_phone: data.customerPhone,
+        customer_address: data.customerAddress,
+        customer_notes: data.customerNotes ?? null,
+        area_label: data.areaLabel ?? null,
+        delivery_charge: data.deliveryCharge,
+        subtotal: data.subtotal,
+        total: data.total,
+        payment_method: data.paymentMethod,
+        transaction_ref: data.transactionRef ?? null,
+        status: "pending",
+        payment_status: "pending",
+      })
+      .select()
+      .single();
+
+    if (orderErr) {
+      console.error("[orders] insert order failed:", orderErr.message);
+      throw new Error(`Order insert failed: ${orderErr.message}`);
+    }
+
+    // 2. Insert order items
+    if (data.items.length > 0) {
+      const itemsToInsert = data.items.map((item) => ({
+        id: randomUUID(),
+        order_id: orderRow.id,
+        name: item.name,
+        quantity: item.quantity,
+        unit_price: item.unitPrice,
+        total: item.total,
+        size: item.size ?? null,
+      }));
+
+      const { error: itemsErr } = await supabase
+        .from("order_items")
+        .insert(itemsToInsert);
+
+      if (itemsErr) {
+        console.error("[orders] insert items failed:", itemsErr.message);
+        throw new Error(`Order items insert failed: ${itemsErr.message}`);
+      }
+    }
+
+    // 3. Fetch the complete order with items
+    const { data: fullOrder, error: fetchErr } = await supabase
+      .from("orders")
+      .select("*, items:order_items(*)")
+      .eq("id", orderRow.id)
+      .single();
+
+    if (fetchErr) {
+      console.error("[orders] fetch order failed:", fetchErr.message);
+      throw new Error(`Order fetch failed: ${fetchErr.message}`);
+    }
+
+    console.log("[orders] createOrder SUCCESS:", fullOrder.id, "#", fullOrder.order_number);
+    return toOrderDto(fullOrder, (fullOrder as Record<string, unknown>).items);
   });
 
 // ---------------------------------------------------------------------------
@@ -216,38 +241,50 @@ export const listOrders = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<{ orders: OrderDto[]; total: number }> => {
     await requireSession();
 
-    const where: Record<string, unknown> = {};
+    let query = supabase
+      .from("orders")
+      .select("*, items:order_items(*)", { count: "exact" })
+      .order("created_at", { ascending: false });
 
+    // Status filter
     if (data.status && data.status !== "all") {
-      where.status = data.status;
+      query = query.eq("status", data.status);
     }
 
+    // Search filter — name (ilike), phone (eq), order_number (eq)
     if (data.search && data.search.trim() !== "") {
       const q = data.search.trim();
-      const orFilters: Record<string, unknown>[] = [
-        { customerName: { contains: q, mode: "insensitive" } },
-        { customerPhone: { contains: q } },
-      ];
-      const num = Number(q);
-      if (Number.isFinite(num)) {
-        orFilters.push({ orderNumber: num });
+      const numVal = Number(q);
+      if (Number.isFinite(numVal)) {
+        // Search by order number OR name OR phone
+        query = query.or(
+          `order_number.eq.${numVal},customer_name.ilike.%${q}%,customer_phone.eq.${q}`,
+        );
+      } else {
+        // Text search — name or phone
+        query = query.or(
+          `customer_name.ilike.%${q}%,customer_phone.eq.${q}`,
+        );
       }
-      where.OR = orFilters;
     }
 
-    const [orders, total] = await Promise.all([
-      prisma.order.findMany({
-        where,
-        include: { items: true },
-        orderBy: { createdAt: "desc" },
-        skip: (data.page - 1) * data.pageSize,
-        take: data.pageSize,
-      }),
-      prisma.order.count({ where }),
-    ]);
+    // Pagination
+    const from = (data.page - 1) * data.pageSize;
+    const to = from + data.pageSize - 1;
+    query = query.range(from, to);
 
-    console.log("[orders] listOrders returned:", orders.length, "of", total, "total");
-    return { orders: orders.map(toOrderDto), total };
+    const { data: orders, error, count } = await query;
+
+    if (error) {
+      console.error("[orders] listOrders query failed:", error.message);
+      throw new Error(`List orders failed: ${error.message}`);
+    }
+
+    console.log("[orders] listOrders returned:", (orders ?? []).length, "of", count ?? 0, "total");
+    return {
+      orders: (orders ?? []).map((row) => toOrderDto(row, (row as Record<string, unknown>).items)),
+      total: count ?? 0,
+    };
   });
 
 // ---------------------------------------------------------------------------
@@ -259,12 +296,18 @@ export const getOrder = createServerFn({ method: "GET" })
   .handler(async ({ data }): Promise<OrderDto | null> => {
     await requireSession();
 
-    const order = await prisma.order.findUnique({
-      where: { id: data.id },
-      include: { items: true },
-    });
+    const { data: order, error } = await supabase
+      .from("orders")
+      .select("*, items:order_items(*)")
+      .eq("id", data.id)
+      .single();
 
-    return order ? toOrderDto(order) : null;
+    if (error) {
+      if (error.code === "PGRST116") return null; // not found
+      throw new Error(`Get order failed: ${error.message}`);
+    }
+
+    return toOrderDto(order, (order as Record<string, unknown>).items);
   });
 
 // ---------------------------------------------------------------------------
@@ -276,13 +319,16 @@ export const updateOrderStatus = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<OrderDto> => {
     await requireSession();
 
-    const order = await prisma.order.update({
-      where: { id: data.id },
-      data: { status: data.status },
-      include: { items: true },
-    });
+    const { data: order, error } = await supabase
+      .from("orders")
+      .update({ status: data.status })
+      .eq("id", data.id)
+      .select("*, items:order_items(*)")
+      .single();
 
-    return toOrderDto(order);
+    if (error) throw new Error(`Update order status failed: ${error.message}`);
+
+    return toOrderDto(order, (order as Record<string, unknown>).items);
   });
 
 // ---------------------------------------------------------------------------
@@ -294,13 +340,16 @@ export const updatePaymentStatus = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<OrderDto> => {
     await requireSession();
 
-    const order = await prisma.order.update({
-      where: { id: data.id },
-      data: { paymentStatus: data.paymentStatus },
-      include: { items: true },
-    });
+    const { data: order, error } = await supabase
+      .from("orders")
+      .update({ payment_status: data.paymentStatus })
+      .eq("id", data.id)
+      .select("*, items:order_items(*)")
+      .single();
 
-    return toOrderDto(order);
+    if (error) throw new Error(`Update payment status failed: ${error.message}`);
+
+    return toOrderDto(order, (order as Record<string, unknown>).items);
   });
 
 // ---------------------------------------------------------------------------
@@ -314,27 +363,53 @@ export const getOrderStats = createServerFn({ method: "GET" }).handler(
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
 
-    const [totalOrders, pendingOrders, todayAgg, recentOrders] = await Promise.all([
-      prisma.order.count(),
-      prisma.order.count({ where: { status: "pending" } }),
-      prisma.order.aggregate({
-        where: { createdAt: { gte: todayStart } },
-        _sum: { total: true },
-      }),
-      prisma.order.findMany({
-        orderBy: { createdAt: "desc" },
-        take: 5,
-        include: { items: true },
-      }),
+    // Run all queries in parallel
+    const [totalResult, pendingResult, todayResult, recentResult] = await Promise.all([
+      // Total orders count
+      supabase.from("orders").select("*", { count: "exact", head: true }),
+
+      // Pending orders count
+      supabase
+        .from("orders")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "pending"),
+
+      // Today's sales sum
+      supabase
+        .from("orders")
+        .select("total")
+        .gte("created_at", todayStart.toISOString()),
+
+      // Recent 5 orders
+      supabase
+        .from("orders")
+        .select("*, items:order_items(*)")
+        .order("created_at", { ascending: false })
+        .limit(5),
     ]);
 
-    console.log("[orders] getOrderStats:", { totalOrders, pendingOrders });
+    if (totalResult.error) throw new Error(`Stats (total) failed: ${totalResult.error.message}`);
+    if (pendingResult.error) throw new Error(`Stats (pending) failed: ${pendingResult.error.message}`);
+    if (todayResult.error) throw new Error(`Stats (today) failed: ${todayResult.error.message}`);
+    if (recentResult.error) throw new Error(`Stats (recent) failed: ${recentResult.error.message}`);
+
+    const todaySales = (todayResult.data ?? []).reduce(
+      (sum, row) => sum + num(row.total),
+      0,
+    );
+
+    console.log("[orders] getOrderStats:", {
+      total: totalResult.count,
+      pending: pendingResult.count,
+    });
 
     return {
-      totalOrders,
-      pendingOrders,
-      todaySales: Number(todayAgg._sum.total ?? 0),
-      recentOrders: recentOrders.map(toOrderDto),
+      totalOrders: totalResult.count ?? 0,
+      pendingOrders: pendingResult.count ?? 0,
+      todaySales,
+      recentOrders: (recentResult.data ?? []).map((row) =>
+        toOrderDto(row, (row as Record<string, unknown>).items),
+      ),
     };
   },
 );
