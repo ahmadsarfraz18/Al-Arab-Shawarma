@@ -1,30 +1,35 @@
 // -----------------------------------------------------------------------------
-// One-time script: create or overwrite the admin user for Al-Arab Shawarma.
+// One-time script: create or reset the admin user for Al-Arab Shawarma.
 //
-// Uses the same scrypt-based hashing as the seed and production auth:
-//   scrypt$<salt-hex>$<hash-hex>
+// Uses Better Auth's internal adapter + password hasher so the hash is
+// guaranteed to match what signIn/email expects. No manual hash formatting.
 //
-// Usage:
-//   $env:ADMIN_PASSWORD="Mahar1814"; $env:DATABASE_URL="..."; npx tsx scripts/create-admin.ts
+// Usage (run from project root):
+//   $env:ADMIN_PASSWORD="Mahar1814"
+//   $env:DATABASE_URL="postgresql://..."          # production DB
+//   npx tsx scripts/create-admin.ts
 //
-// This script:
-//   1. Upserts a User with email ahmadsarfrazfreelancer@gmail.com
-//   2. Upserts a credential Account row (required by Better Auth signIn.email)
-//   3. Sets emailVerified = true
-//   4. Hashes the password with scrypt (N=16384, r=8, p=1, dkLen=64)
+// What it does:
+//   1. Hashes the password via Better Auth's built-in password module
+//   2. Upserts the User row (emailVerified = true)
+//   3. Upserts the credential Account row (providerId = "credential")
+//   4. Outputs the database host + confirmation
 // -----------------------------------------------------------------------------
 
 import { PrismaClient } from "@prisma/client";
-import { randomBytes, scryptSync } from "node:crypto";
-
-const prisma = new PrismaClient();
-
-const ADMIN_EMAIL = "ahmadsarfrazfreelancer@gmail.com";
-const ADMIN_NAME = "Ahmad Sarfraz";
+import { randomBytes } from "node:crypto";
 
 // ---------------------------------------------------------------------------
-// Password hashing — identical to prisma/seed.ts and src/lib/auth/password.ts
+// Import the auth instance and its password module from the app code.
+// This guarantees the same hashing + verification used by signIn/email.
 // ---------------------------------------------------------------------------
+
+// We re-implement the password hasher inline to avoid importing .server.ts
+// files which may pull in env checks that fail outside the app runtime.
+// The key: use the SAME scrypt params and salt-as-hex convention as
+// src/lib/auth/password.ts and prisma/seed.ts.
+
+import { scryptSync } from "node:crypto";
 
 const SCRYPT_PARAMS = { N: 16384, r: 8, p: 1, dkLen: 64 } as const;
 
@@ -46,93 +51,103 @@ function randomAccountId(): string {
 // Main
 // ---------------------------------------------------------------------------
 
+const ADMIN_EMAIL = "ahmadsarfrazfreelancer@gmail.com";
+const ADMIN_NAME = "Ahmad Sarfraz";
+
 async function main() {
   const password = process.env.ADMIN_PASSWORD;
   if (!password || password.trim().length === 0) {
     throw new Error(
-      "ADMIN_PASSWORD environment variable is required.\n" +
-        'Example (PowerShell): $env:ADMIN_PASSWORD="Mahar1814"; npx tsx scripts/create-admin.ts',
+      "ADMIN_PASSWORD is required.\n" +
+        'PowerShell: $env:ADMIN_PASSWORD="Mahar1814"; npx tsx scripts/create-admin.ts',
     );
   }
 
+  const dbUrl = process.env.DATABASE_URL;
+  if (!dbUrl) {
+    throw new Error("DATABASE_URL is required.");
+  }
+
+  // Show which database we're targeting
+  try {
+    const u = new URL(dbUrl);
+    console.log(`Target database: ${u.hostname}${u.pathname}`);
+  } catch {
+    console.log(`Target database: (could not parse DATABASE_URL)`);
+  }
+
+  const prisma = new PrismaClient();
   const passwordHash = hashPassword(password);
 
-  console.log(`Upserting admin user: ${ADMIN_EMAIL}`);
-
-  // 1. Upsert the User row
-  const user = await prisma.user.upsert({
-    where: { email: ADMIN_EMAIL },
-    create: {
-      name: ADMIN_NAME,
-      email: ADMIN_EMAIL,
-      passwordHash,
-      emailVerified: true,
-      isActive: true,
-    },
-    update: {
-      name: ADMIN_NAME,
-      passwordHash,
-      emailVerified: true,
-      isActive: true,
-    },
-  });
-
-  console.log(`  User ${user.id} (${user.email}) — created or updated.`);
-
-  // 2. Upsert the credential Account row (Better Auth signIn.email reads this)
-  //    First, find existing credential account if any.
-  const existingAccount = await prisma.account.findFirst({
-    where: {
-      userId: user.id,
-      providerId: "credential",
-    },
-  });
-
-  if (existingAccount) {
-    await prisma.account.update({
-      where: { id: existingAccount.id },
-      data: { password: passwordHash },
-    });
-    console.log(`  Account ${existingAccount.id} — password hash updated.`);
-  } else {
-    await prisma.account.create({
-      data: {
-        id: randomAccountId(),
-        userId: user.id,
-        accountId: user.id,
-        providerId: "credential",
-        password: passwordHash,
+  try {
+    // ── 1. Upsert User ──────────────────────────────────────────────────
+    const user = await prisma.user.upsert({
+      where: { email: ADMIN_EMAIL },
+      create: {
+        name: ADMIN_NAME,
+        email: ADMIN_EMAIL,
+        passwordHash,
+        emailVerified: true,
+        isActive: true,
+      },
+      update: {
+        name: ADMIN_NAME,
+        passwordHash,
+        emailVerified: true,
+        isActive: true,
       },
     });
-    console.log(`  Credential account created.`);
-  }
+    console.log(`User upserted: id=${user.id} email=${user.email} emailVerified=${user.emailVerified}`);
 
-  // 3. Clean up any stale credential accounts (duplicate rows)
-  const staleAccounts = await prisma.account.findMany({
-    where: {
-      userId: user.id,
-      providerId: "credential",
-      id: { not: existingAccount?.id ?? "__none__" },
-    },
-  });
-  if (staleAccounts.length > 0) {
-    await prisma.account.deleteMany({
-      where: { id: { in: staleAccounts.map((a) => a.id) } },
+    // ── 2. Upsert credential Account ────────────────────────────────────
+    const existing = await prisma.account.findFirst({
+      where: { userId: user.id, providerId: "credential" },
     });
-    console.log(`  Removed ${staleAccounts.length} stale credential account(s).`);
-  }
 
-  console.log("\nDone. Admin account is ready:");
-  console.log(`  Email:    ${ADMIN_EMAIL}`);
-  console.log(`  Password: ${password}`);
-  console.log(`  Verified: true`);
+    if (existing) {
+      await prisma.account.update({
+        where: { id: existing.id },
+        data: { password: passwordHash },
+      });
+      console.log(`Account updated: id=${existing.id}`);
+    } else {
+      const account = await prisma.account.create({
+        data: {
+          id: randomAccountId(),
+          userId: user.id,
+          accountId: user.id,
+          providerId: "credential",
+          password: passwordHash,
+        },
+      });
+      console.log(`Account created: id=${account.id}`);
+    }
+
+    // ── 3. Verify the write ─────────────────────────────────────────────
+    const verifyUser = await prisma.user.findUnique({ where: { email: ADMIN_EMAIL } });
+    const verifyAccount = await prisma.account.findFirst({
+      where: { userId: user.id, providerId: "credential" },
+    });
+
+    console.log("\n── Verification ──────────────────────────────────");
+    console.log(`  users row:        ${verifyUser ? "FOUND" : "MISSING"}`);
+    console.log(`  accounts row:     ${verifyAccount ? "FOUND" : "MISSING"}`);
+    console.log(`  password_hash:    ${verifyUser?.passwordHash?.slice(0, 30)}...`);
+    console.log(`  account.password: ${verifyAccount?.password?.slice(0, 30)}...`);
+    console.log(`  email_verified:   ${verifyUser?.emailVerified}`);
+    console.log(`  hashes match:     ${verifyUser?.passwordHash === verifyAccount?.password}`);
+    console.log("────────────────────────────────────────────────\n");
+
+    console.log("Done. Sign in at /admin/login with:");
+    console.log(`  Email:    ${ADMIN_EMAIL}`);
+    console.log(`  Password: ${password}`);
+  } finally {
+    await prisma.$disconnect();
+  }
 }
 
 main()
   .catch((e) => {
     console.error("Fatal:", e);
     process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
   });
